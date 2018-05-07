@@ -1,0 +1,33 @@
+{
+    "dataset_name": "han-dblp",
+
+    "optimizer": "Adam",
+    "eval_every": 7000,
+    "e_eval_every": 100,
+    "pw_lr": 0.1,
+    "e_lr": 0.1,
+    "l2penalty": 0.05,
+    "batch_size": 100,
+    "fraction_of_thresholds_to_try_dev": 1,
+    "refine_itrs": 50,
+
+    "experiment_out_dir": "exp_out",
+    "train_files":  "data/han-dblp/eval/train/train_canopies.txt",
+    "dev_files":  "data/han-dblp/eval/dev/dev_canopies.txt",
+    "pair_filename":"data/train/han-dblp/balanced-1000-all-canopies.tsv",
+    "dev_pair_filename":"data/train/han-dblp/balanced-1000-all-canopies.tsv",
+    "batcher_filename":"data/train/han-dblp/balanced-1000-all-canopies.torch",
+    "dev_batcher_filename":"data/train/han-dblp/balanced-1000-all-canopies.torch",
+
+    "model_name": "AuthorCorefModel",
+    "pairwise_model_name": "BasePairwiseModel",
+    "entity_model_name": "BaseSubEntModel",
+    "pw_arch": "lin",
+    "e_arch": "lin",
+    "fasttext": "resources/dblp-2011-skipgram.bin",
+    "activation": "tanh",
+
+    "train_tree_size": 20,
+
+    "use_cuda": false
+}
