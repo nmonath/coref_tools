@@ -48,32 +48,39 @@ if __name__ == "__main__":
     nnk = int(sys.argv[2])
     nsw_r = int(sys.argv[3])
 
-    algs = ['greedy', 'perch', 'gerch', 'bgerch']
-    exact_nn = [True,False]
-    atms = [True,False]
+    algs = ['acoref-greedy', 'acoref-perch', 'acoref-grinch']
+    exact_nn = [False]
+    atms = [True]
+    exact_best_pws = [True,False]
 
     exp_dir = os.path.dirname(configfile)
 
     def filename(alg,exact,atm,nn_k,nsw_r):
-        return "config_%s_exact_%s_atm_%s_nnk_%s_nswr_%s.json" % (alg,exact,atm,nn_k,nsw_r)
+        return "config_%s_exact_%s_nnk_%s_nswr_%s_ebp_%s.json" % (alg,exact,nn_k,nsw_r,exact_best_pw)
 
     for alg in algs:
         for exact in exact_nn:
             for atm in atms:
-                base = Config(configfile)
-                base.config_name = os.path.join(exp_dir,filename(alg,exact,atm,nnk,nsw_r))
-                base.clustering_scheme = alg
-                base.exact_nn = exact
-                base.add_to_mention = atm
-                base.nn_k = nnk
-                base.nsw_r = nsw_r
-                base.save_config(exp_dir,filename(alg,exact,atm,nnk,nsw_r))
+                for exact_best_pw in exact_best_pws:
+                    base = Config(configfile)
+                    base.config_name = os.path.join(exp_dir,filename(alg,exact,atm,nnk,nsw_r))
+                    base.clustering_scheme = alg
+                    base.exact_nn = exact
+                    base.add_to_mention = atm
+                    base.nn_k = nnk
+                    base.nsw_r = nsw_r
+                    base.write_every_tree = False
+                    base.fast_graft = False
+                    base.beam = 5
+                    base.exact_best_pairwise = exact_best_pw
+                    base.save_config(exp_dir,filename(alg,exact,atm,nnk,nsw_r))
 
-    mbsizes = [10, 25, 50,100]
-    for mbsize in mbsizes:
-        fname = "config_mbehac_mbsize_%s.json" % mbsize
-        base = Config(configfile)
-        base.config_name = os.path.join(exp_dir, fname)
-        base.clustering_scheme = 'mbehac'
-        base.mbsize = mbsize
-        base.save_config(exp_dir, fname)
+    # mbsizes = [10, 25, 50,100]
+    # for mbsize in mbsizes:
+    #     fname = "config_mbehac_mbsize_%s.json" % mbsize
+    #     base = Config(configfile)
+    #     base.config_name = os.path.join(exp_dir, fname)
+    #     base.clustering_scheme = 'mbehac'
+    #     base.mbsize = mbsize
+    #     base.write_every_tree = False
+    #     base.save_config(exp_dir, fname)

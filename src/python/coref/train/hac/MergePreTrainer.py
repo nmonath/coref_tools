@@ -25,7 +25,7 @@ from torch.autograd import Variable
 from torch.nn import BCEWithLogitsLoss,MSELoss
 
 from coref.train.pw.TrainAuthorBatcher import TrainAuthorModelBatcher
-from coref.models.core.Ment import Ment
+from coref.models.core.Ment import Ment,MentLoader
 from coref.models.core.F1Node import F1Node
 from coref.models.hac.EHAC import EHAC
 from coref.router.Utils import save_dict_to_json, sofl
@@ -109,13 +109,11 @@ class MergePreTrainer(object):
     def write_training_data(self, ms, outfile):
         """Read in a collections of mentions and create pw training data."""
         batcher = TrainAuthorModelBatcher(self.config)
+        loader = MentLoader()
         for m1, m2, lbl in ms:
-            m1obj = Ment(-1, -1).from_json(m1)
-            m2obj = Ment(-1, -1).from_json(m2)
+            m1obj = loader.load_ment(m1,self.model)[0]
+            m2obj = loader.load_ment(m2,self.model)[0]
             lbl = float(lbl)
-            # TODO: Figure out a better way to handle the numpy stuff here.
-            m1obj.get_title_embs(self.model.ft())
-            m2obj.get_title_embs(self.model.ft())
             fv = self.model.pw_extract_features(
                 m1obj.attributes, m2obj.attributes).cpu().data.numpy()
             batcher.add_example(fv, lbl, (m1obj.mid, m2obj.mid))
@@ -327,7 +325,7 @@ class MergePreTrainer(object):
                 print('self.model.e_output_layer.weight')
                 print(self.model.e_output_layer.weight)
 
-                if f1 > best_f1:
+                if f1 >= best_f1:
                     self.config.best_model = self.config.model_filename
                     self.config.partition_threshold = float(thresh)
                     self.config.save_config(self.config.experiment_out_dir)
@@ -346,7 +344,7 @@ class MergePreTrainer(object):
             print('Running dev eval one last time %s ' % last_iter_no)
             _, f1, thresh = self.dev_eval_multiple(last_iter_no, diagnostics,
                                        output_path)
-            if f1 > best_f1:
+            if f1 >= best_f1:
                 self.config.best_model = self.config.model_filename
                 self.config.partition_threshold = float(thresh)
                 self.config.save_config(self.config.experiment_out_dir)
@@ -420,6 +418,9 @@ class MergePreTrainer(object):
                         weight_accum.append(weight)
                         ex_accum.append(e_score)
                         label_accum.append(precision)
+
+                # TODO(AK): might consider using Pedram's suggestion of fitting
+                # TODO(AK): the optimal set of clusters.
 
             res = ehac.next_agglom()
 
@@ -541,6 +542,11 @@ class MergePreTrainer(object):
                 if not self.config.only_use_labeled_dev or (
                         m[1] is not None and m[1] != "None"):
                     ms.append(m)
+            self.config.random.shuffle(ms)
+            # Restrict
+            canopy_size = min(self.config.dev_max_canopy_size,len(ms))
+            sofl('Loaded canopy %s with %s mentions and restricted the size of the canopy to %s' % (dev_canopy,len(ms),canopy_size))
+            ms = ms[:canopy_size]
             inf_start = datetime.datetime.now()
             sofl('[DEV TREE USING] %s' %self.config.clustering_scheme)
             dev_tree = new_clustering_scheme(self.config, ms, self.model)
@@ -553,6 +559,7 @@ class MergePreTrainer(object):
                                                         'diagnostics.json'))
 
             sofl('[SCORING TREE...]')
+            score_start = datetime.datetime.now()
             pre_ub, rec_ub, f1_ub = dev_tree_roots[-1].f1_best()
             pre, rec, f1 = dev_tree_roots[-1].f1_cluster_marker()
             tp_ub, fp_ub, gt_ub = dev_tree_roots[-1].tp_fp_gt_best()
@@ -580,9 +587,13 @@ class MergePreTrainer(object):
                     frontier.append(x.children[0])
                     frontier.append(x.children[1])
                 all_scores.add(x.my_score)
+            score_end = datetime.datetime.now()
+            score_time_seconds = (score_end - score_start).total_seconds()
+            sofl('[SCORING IN %ss]' % score_time_seconds)
 
         dev_end = datetime.datetime.now()
         inf_time_seconds = dev_end - dev_start
+        sofl('[DEV TOTAL TIME IN %ss]' % inf_time_seconds)
         pre = micro_TP / (
         micro_TP + micro_FP) if micro_TP + micro_FP > 0.0 else 0.0
         rec = micro_TP / (micro_GT) if micro_GT > 0.0 else 0.0
@@ -603,10 +614,10 @@ class MergePreTrainer(object):
         self.config.model_filename = os.path.join(
             output_path, "pw_iter_{}.torch".format(iter))
 
-
         self.config.save_config(output_path,
                                 filename='pwe_iter_%d.config' % iter)
 
+        threshold_start = datetime.datetime.now()
         print('[FIND BEST OVERALL THRESHOLD]')
         sorted_tree_scores = sorted(list(all_scores))
         num_to_try = len(sorted_tree_scores) * self.config.fraction_of_thresholds_to_try_dev
@@ -650,5 +661,8 @@ class MergePreTrainer(object):
         #     print('c.as_ment.attributes.aproj_local')
         #     print(c.as_ment.attributes.aproj_local)
         sofl('[END DEV EVAL]')
+        threshold_end = datetime.datetime.now()
+        threshold_time_seconds = threshold_end - threshold_start
+        sofl('[THRESHOLD TIME IN %ss]' % threshold_time_seconds)
         sofl("")
         return f1_ub, best_f, best_t

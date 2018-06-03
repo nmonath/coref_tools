@@ -90,8 +90,11 @@ class Graphviz(object):
         color = self.internal_color
         try:
             if node.purity() == 1.0:
-                if hasattr(node,'pts'):
-                    color = self.get_color(node.pts[0][0].gt)
+                if hasattr(node,'pts') and len(node.pts) > 0:
+                    if hasattr(node.pts[0][0], 'gt'):
+                        color = self.get_color(node.pts[0][0].gt)
+                    else:
+                        color = self.get_color(node.pts[0][1])
                 elif hasattr(node,'ms'):
                     color = self.get_color(node.ms[0].gt)
         except Exception:
@@ -116,14 +119,17 @@ class Graphviz(object):
                 '\nROOTNODE[shape=star;style=filled;color=gold;label=<ROOT>]')
             s.append('\nROOTNODE->%s' % self.format_id(node.id))
         else:
-            if hasattr(node,'pts'):
-                leaf_m = '%s|%s' % (node.pts[0][0].mid, node.pts[0][0].gt) \
-                    if node.is_leaf() else ''
+            leaf_m = ""
+            if hasattr(node,'pts') and len(node.pts) > 0:
+                if hasattr(node.pts[0][0], 'mid'):
+                    leaf_m = '%s|%s' % (node.pts[0][0].mid, node.pts[0][0].gt) \
+                        if node.is_leaf() else ''
+                else:
+                    leaf_m = '%s|%s' % (node.pts[0][2], node.pts[0][1]) \
+                        if node.is_leaf() else ''
             elif hasattr(node,'ms'):
                 leaf_m = '%s|%s' % (node.ms[0].mid, node.ms[0].gt) \
                     if node.is_leaf() else ''
-            else:
-                raise Exception()
             if hasattr(node, 'my_score'):
                 my_score = node.my_score
             else:

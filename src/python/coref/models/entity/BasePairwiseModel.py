@@ -13,17 +13,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import fasttext
-import math
-import numpy as np
-import torch
-
 from torch.nn import Module
 import torch.nn as nn
-from torch.autograd import Variable
 from coref.router.Utils import activation_from_str
 
-from coref.models.entity.BaseSubEntModel import BaseSubEntModel
 
 from coref.train.pw.NameModel import NameModel as PWNameModel
 from coref.train.pw.TitleModel import TitleModel as PWTitleModel

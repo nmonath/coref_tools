@@ -13,24 +13,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import fasttext
-import math
-import numpy as np
-import torch
-
 from torch.nn import Module
 import torch.nn as nn
-from torch.autograd import Variable
+
 from coref.router.Utils import activation_from_str
 
-from coref.models.entity.BaseSubEntModel import BaseSubEntModel
-
 from coref.train.pw.NameModel import NameModel as PWNameModel
-from coref.train.pw.LDATitleModel import LDATitleModel as PWLDATitleModel
+from coref.train.pw.TitleModel import TitleModel as PWTitleModel
 from coref.train.pw.CoAuthorModel import CoAuthorModel as PWCoauthorModel
 from coref.train.pw.VenueModel import VenueModel as PWVenueModel
-from coref.train.pw.InstitutionModel import InstitutionModel as PWInstitutionModel
-from coref.train.pw.ReferenceModel import ReferenceModel as PWReferenceModel
+
 from coref.train.pw.MeshTermsModel import MeshTermsModel as PWMeshTermsModel
 from coref.models.pw.YearModel import YearModel as PWYearModel
 
@@ -45,18 +37,16 @@ class PubMedPairwiseModel(Module):
 
         self.pw_name_model = PWNameModel(config, vocab)
         self.pw_coauthor_model = PWCoauthorModel(config, vocab)
-        self.pw_title_model = PWLDATitleModel(config, vocab)
+        self.pw_title_model = PWTitleModel(config, vocab)
         self.pw_venue_model = PWVenueModel(config, vocab)
-        self.pw_institution_model = PWInstitutionModel(config, vocab)
-        self.pw_reference_model = PWReferenceModel(config, vocab)
+        # self.pw_institution_model = PWInstitutionModel(config, vocab)
+        # self.pw_reference_model = PWReferenceModel(config, vocab)
         self.pw_mesh_terms_model = PWMeshTermsModel(config, vocab)
         self.pw_year_model = PWYearModel(config, vocab)
         self.pw_concat_dim = self.pw_name_model.dim + \
                              self.pw_coauthor_model.dim + \
                              self.pw_title_model.dim + \
                              self.pw_venue_model.dim + \
-                             self.pw_institution_model.dim + \
-                             self.pw_reference_model.dim + \
                              self.pw_mesh_terms_model.dim + \
                              self.pw_year_model.dim
 
@@ -69,10 +59,11 @@ class PubMedPairwiseModel(Module):
         name_emb = self.pw_name_model.emb(m1, m2)
         coauthor_emb = self.pw_coauthor_model.emb(m1, m2)
         title_emb = self.pw_title_model.emb(m1, m2)
-        email_emb = self.pw_email_model.emb(m1, m2)
+        mesh_emb = self.pw_mesh_terms_model.emb(m1, m2)
+        venue_emb = self.pw_venue_model.emb(m1, m2)
         year_emb = self.pw_year_model.emb(m1, m2)
         fv = []
-        for l in [name_emb, coauthor_emb, title_emb, year_emb, email_emb]:
+        for l in [name_emb, coauthor_emb, title_emb, year_emb, mesh_emb,venue_emb]:
             for i, v in enumerate(l):
                 fv.append(v)
         return fv

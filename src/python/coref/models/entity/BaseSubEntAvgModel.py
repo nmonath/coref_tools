@@ -19,13 +19,13 @@ import torch.nn as nn
 
 from coref.router.Utils import activation_from_str
 
-class BaseSubEntModel(Module):
+class BaseSubEntAvgModel(Module):
     def __init__(self, config, vocab):
         """A Sub Entity model."""
-        super(BaseSubEntModel, self).__init__()
+        super(BaseSubEntAvgModel, self).__init__()
         self.config = config
         self.vocab = vocab
-        self.dim = 4
+        self.dim = 2
         self.activation = activation_from_str(self.config.activation)
         self.e_mlp = None
         self.e_linear = None
@@ -41,7 +41,7 @@ class BaseSubEntModel(Module):
 
     def my_pw(self, entity):
         """Return the pw cost to construct this subent."""
-        return float(entity.aproj_local['my_pw'])
+        return float(entity['my_pw'])
 
     def new_edges(self, entity):
         """Returns the number of new 'edges' introduced by this merge."""
@@ -51,19 +51,22 @@ class BaseSubEntModel(Module):
 
     def ent_child_min_score(self, entity):
         """entity score of the left child."""
-        return float(entity.aproj_local['child_e_min'])
+        return float(entity['child_e_min'])
 
     def ent_child_max_score(self, entity):
         """entity score of the right child"""
-        return float(entity.aproj_local['child_e_max'])
+        return float(entity['child_e_max'])
+
+    def ent_child_avg_score(self,entity):
+        min = float(entity['child_e_min'])
+        max = float(entity['child_e_max'])
+        return (min + max) / 2
 
     def emb(self, entity):
         """Get all features of entity."""
         fv = []
         fv.append(self.my_pw(entity))
-        fv.append(self.new_edges(entity))  # only comes into play for regress.
-        fv.append(self.ent_child_min_score(entity))
-        fv.append(self.ent_child_max_score(entity))
+        fv.append(self.ent_child_avg_score(entity))
         # if self.config.debug:
         #     print('== emb ==')
         #     print('==> my_pw: %s' % self.my_pw(entity))

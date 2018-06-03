@@ -50,29 +50,29 @@ class TitleModel(Module):
                 cs = np.dot(r_avg_emb, d_avg_emb) / denom
                 return cs
 
-    def one_over_emb_min_d(self, routee, dest):
-        """Min distance between embedding bounding box."""
-        rbb = routee['tbb']   # title embedding avg
-        dbb = dest['tbb']
-        if type(rbb) == set or type(dbb) == set:
-            return 0.0
-        else:
-            min_d1 = _fast_min_to_box(dbb[0], dbb[1], rbb[0])
-            min_d2 = _fast_min_to_box(dbb[0], dbb[1], rbb[1])
-            mind_d = min(min_d1, min_d2)
-            return 1.0 / np.exp(mind_d)
-
-    def one_over_emb_max_d(self, routee, dest):
-        """Max distance between embedding bounding box."""
-        rbb = routee['tbb']  # title embedding avg
-        dbb = dest['tbb']
-        if type(rbb) == set or type(dbb) == set:
-            return 0.0
-        else:
-            max_d1 = _fast_max_to_box(dbb[0], dbb[1], rbb[0])
-            max_d2 = _fast_max_to_box(dbb[0], dbb[1], rbb[1])
-            max_d = max(max_d1, max_d2)
-            return 1.0 / np.exp(max_d)
+    # def one_over_emb_min_d(self, routee, dest):
+    #     """Min distance between embedding bounding box."""
+    #     rbb = routee['tbb']   # title embedding avg
+    #     dbb = dest['tbb']
+    #     if type(rbb) == set or type(dbb) == set:
+    #         return 0.0
+    #     else:
+    #         min_d1 = _fast_min_to_box(dbb[0], dbb[1], rbb[0])
+    #         min_d2 = _fast_min_to_box(dbb[0], dbb[1], rbb[1])
+    #         mind_d = min(min_d1, min_d2)
+    #         return 1.0 / np.exp(mind_d)
+    #
+    # def one_over_emb_max_d(self, routee, dest):
+    #     """Max distance between embedding bounding box."""
+    #     rbb = routee['tbb']  # title embedding avg
+    #     dbb = dest['tbb']
+    #     if type(rbb) == set or type(dbb) == set:
+    #         return 0.0
+    #     else:
+    #         max_d1 = _fast_max_to_box(dbb[0], dbb[1], rbb[0])
+    #         max_d2 = _fast_max_to_box(dbb[0], dbb[1], rbb[1])
+    #         max_d = max(max_d1, max_d2)
+    #         return 1.0 / np.exp(max_d)
 
     def word_sim(self, routee, dest):
         """
@@ -92,8 +92,8 @@ class TitleModel(Module):
         :return: Some kind of vector, you choose
         """
         fv = []
-        fv.append(self.word_sim(routee, dest))
-        fv.append(self.embbeded_sim(routee, dest))
+        fv.append(float(self.word_sim(routee, dest)))
+        fv.append(float(self.embbeded_sim(routee, dest)))
         # fv.append(self.one_over_emb_max_d(routee, dest))
         # fv.append(self.one_over_emb_min_d(routee, dest))
         return fv

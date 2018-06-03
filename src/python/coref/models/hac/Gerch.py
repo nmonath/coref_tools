@@ -16,8 +16,10 @@ limitations under the License.
 import torch
 import os
 import numpy as np
-
+import time
+import sys
 from scipy.special import expit
+import random
 
 from coref.models.core.AttributeProjection import AttributeProjection
 from coref.models.core.MentNode import MentNode
@@ -25,6 +27,7 @@ from coref.models.nn import new_nn_structure
 from coref.util.Graphviz import Graphviz
 from coref.util.GraphvizNSW import GraphvizNSW
 from heapq import heappush, heappop
+
 
 class GraftMetaDataRecorder(object):
     def __init__(self):
@@ -135,8 +138,6 @@ class Gerch(object):
         self.root = None  # type MentNode
         self.perform_rotation = perform_rotation
         self.perform_graft = perform_graft
-        self.mention_nn_structure = new_nn_structure(self.config.mention_nn_structure,self.config,
-                                             self.score_function_np)
         self.nn_structure = new_nn_structure(self.config.nn_structure,self.config,
                                              self.score_function_np)
         self.graft_recorder = GraftMetaDataRecorder()
@@ -145,8 +146,33 @@ class Gerch(object):
         self.nn_k = self.config.nn_k if not self.config.exact_nn else np.inf
         self.nsw_r = self.config.nsw_r
         self.num_computations = 0
+        # debugging the best pw cost
+        self.time_in_best_pw = [0, 0, 0, 0, 0]
+        self.time_in_leaves_best_pw = [0, 0]
+        self.time_in_hallucinate_merge = [0,0]
+        self.insert_time = [0,0]
+        self.insert_comps = [0, 0]
+        self.rotation_time = [0, 0]
+        self.rotation_comps = [0, 0]
+        self.grafting_time = [0, 0]
+        self.grafting_comps = [0,0]
+        self.e_hac_comps = [0,0]
+        self.random = random.Random(self.config.random_seed)
+
+    def reset_time_stats(self):
+        self.time_in_best_pw[0] = 0
+        self.time_in_leaves_best_pw[0] = 0
+        self.time_in_best_pw[2] = 0
+        self.time_in_hallucinate_merge[0] = 0
+        self.insert_time[0] = 0
+        self.rotation_time[0] = 0
+        self.grafting_time[0] = 0
+        self.insert_comps[0] = 0
+        self.rotation_comps[0] = 0
+        self.grafting_comps[0] = 0
 
     def hallucinate_merge(self,n1, n2, pw_score,debug_pw_score=None):
+        start_time = time.time()
         ap = AttributeProjection()
         ap.update(n1.as_ment.attributes,self.model.sub_ent_model)
         ap.update(n2.as_ment.attributes,self.model.sub_ent_model)
@@ -165,10 +191,14 @@ class Gerch(object):
         left_child_entity_score = 1.0
         right_child_entity_score = 1.0
 
-        if 'es' in n1.as_ment.attributes.aproj_local:
+        if len(n1.children) > 0 and 'es' in n1.as_ment.attributes.aproj_local:
             left_child_entity_score = n1.as_ment.attributes.aproj_local['es']
-        if 'es' in n2.as_ment.attributes.aproj_local:
+            if self.config.expit_e_score:
+                left_child_entity_score = expit(left_child_entity_score)
+        if len(n2.children) > 0 and 'es' in n2.as_ment.attributes.aproj_local:
             right_child_entity_score = n2.as_ment.attributes.aproj_local['es']
+            if self.config.expit_e_score:
+                right_child_entity_score = expit(right_child_entity_score)
 
         if left_child_entity_score >= right_child_entity_score:
             ap.aproj_local['child_e_max'] = left_child_entity_score
@@ -176,19 +206,13 @@ class Gerch(object):
         else:
             ap.aproj_local['child_e_max'] = right_child_entity_score
             ap.aproj_local['child_e_min'] = left_child_entity_score
-
-        # print('score_fn')
-        # print('ap.aproj_local')
-        # print(ap.aproj_local)
-        # print('n1.as_ment.attributes[\'es\']')
-        # print(n1.as_ment.attributes['es'])
-        # print('n2.as_ment.attributes[\'es\']')
-        # print(n2.as_ment.attributes['es'])
-        # print('n1.as_ment.attributes.aproj_local')
-        # print(n1.as_ment.attributes.aproj_local)
-        # print('n1.as_ment.attributes.aproj_local')
-        # print(n1.as_ment.attributes.aproj_local)
-        # print()
+        assert ap.aproj_local['child_e_max'] <= 1.0
+        assert ap.aproj_local['child_e_min'] <= 1.0
+        assert ap.aproj_local['child_e_max'] >= 0.0
+        assert ap.aproj_local['child_e_min'] >= 0.0
+        end_time = time.time()
+        self.time_in_hallucinate_merge[0] += end_time - start_time
+        self.time_in_hallucinate_merge[1] += end_time - start_time
         return ap
 
     def pw_score(self,n1,n2):
@@ -201,12 +225,22 @@ class Gerch(object):
             self.pair_to_pw[(n1.id,n2.id)] = pw
             return pw
 
-    def best_pairwise(self,n1, n2):
+    def best_pairwise(self,n1,n2):
+        if self.config.exact_best_pairwise:
+            return self.exact_best_pairwise(n1, n2)
+        else:
+            return self.approx_best_pairwise_budget(n1, n2)
+
+    def exact_best_pairwise(self,n1, n2):
+        start_time_in_leaves = time.time()
         best_pw = None
         best_pw_n1 = None
         best_pw_n2 = None
         n1_leaves = n1.leaves()
         n2_leaves = n2.leaves()
+        end_time_in_leaves = time.time()
+        count = 0
+        start_time = time.time()
         for n1p in n1_leaves:
             for n2p in n2_leaves:
                 pw = self.pw_score(n1p, n2p)
@@ -214,48 +248,108 @@ class Gerch(object):
                     best_pw = pw
                     best_pw_n1 = n1p.id
                     best_pw_n2 = n2p.id
+                count += 1
+        end_time = time.time()
+        self.time_in_best_pw[0] += end_time - start_time
+        self.time_in_best_pw[1] += end_time - start_time
+        self.time_in_best_pw[2] += count
+        self.time_in_best_pw[3] += count
+        self.time_in_best_pw[4] += 1
+        self.time_in_leaves_best_pw[0] += end_time_in_leaves - start_time_in_leaves
+        self.time_in_leaves_best_pw[1] += end_time_in_leaves - start_time_in_leaves
+        return best_pw,best_pw_n1,best_pw_n2
+
+    def approx_best_pairwise_budget(self,n1, n2):
+        start_time_in_leaves = time.time()
+        best_pw = None
+        best_pw_n1 = None
+        best_pw_n2 = None
+        budget = self.config.approx_best_pairwise_budget
+        # Require n2_leaves > n1_leaves
+        n1_leaves = n1.leaves()
+        n2_leaves = n2.leaves()
+        end_time_in_leaves = time.time()
+        count = 0
+        if len(n1_leaves) * len(n2_leaves) <= budget:
+            start_time = time.time()
+            for n1p in n1_leaves:
+                for n2p in n2_leaves:
+                    pw = self.pw_score(n1p, n2p)
+                    if best_pw is None or best_pw.data.numpy()[0] < pw.data.numpy()[0]:
+                        best_pw = pw
+                        best_pw_n1 = n1p.id
+                        best_pw_n2 = n2p.id
+                    count += 1
+            end_time = time.time()
+        else:
+            start_time = time.time()
+            num_n1_leaves_minus_one = len(n1_leaves) - 1
+            num_n2_leaves_minus_one = len(n2_leaves) - 1
+            for i in range(budget):
+                n1_l = self.random.randint(0,num_n1_leaves_minus_one)
+                n2_l = self.random.randint(0,num_n2_leaves_minus_one)
+                n1p = n1_leaves[n1_l]
+                n2p = n2_leaves[n2_l]
+                pw = self.pw_score(n1p, n2p)
+                if best_pw is None or best_pw.data.numpy()[0] < pw.data.numpy()[0]:
+                    best_pw = pw
+                    best_pw_n1 = n1p.id
+                    best_pw_n2 = n2p.id
+                count += 1
+            end_time = time.time()
+        self.time_in_best_pw[0] += end_time - start_time
+        self.time_in_best_pw[1] += end_time - start_time
+        self.time_in_best_pw[2] += count
+        self.time_in_best_pw[3] += count
+        self.time_in_leaves_best_pw[0] += end_time_in_leaves - start_time_in_leaves
+        self.time_in_leaves_best_pw[1] += end_time_in_leaves - start_time_in_leaves
+        self.time_in_best_pw[4] += 1
         return best_pw,best_pw_n1,best_pw_n2
 
     def score_function_np(self, n1, n2):
         # For now we are checking all pairs of the pw scores.
         best_pw,best_pw_n1,best_pw_n2 = self.best_pairwise(n1,n2)
-        return self.model.e_score(self.hallucinate_merge(n1, n2, best_pw.data.numpy()[0])).data.numpy()[0]
+        e_score = self.model.e_score(self.hallucinate_merge(n1, n2, best_pw.data.numpy()[0])).data.numpy()[0]
+        # if self.config.expit_e_score:
+        #     e_score = expit(e_score)
+        return e_score
 
-    def score_function(self, n1, n2):
-        # For now we are checking all pairs of the pw scores.
-        best_pw,best_pw_n1,best_pw_n2 = self.best_pairwise(n1,n2)
-        return self.model.e_score(self.hallucinate_merge(n1, n2, best_pw.data.numpy()[0]))
+    def score_np(self,n):
+        return self.score_function_np(n.children[0],n.children[1])
 
-    def score(self,n):
-        return self.score_function(n.children[0],n.children[1])
-
-    def find_best_across(self,n):
-        # best_pw,best_pw_n1,best_pw_n2 = self.best_pairwise(n.children[0],n.children[1])
-        # n.best_across_debug =  "%s %s %s" % (best_pw.data.numpy()[0],best_pw_n1,best_pw_n2)
-        n.best_across_debug = "no debug"
-
-    def find_insert(self, leaf_node, new_node, pw_score):
-        print('find_insert(%s,%s,%s) ' % (leaf_node.id, new_node.id, pw_score))
+    def find_insert(self, leaf_node, new_node):
+        number_e_scores = 0
+        start_time = time.time()
+        pw_score = self.best_pairwise(leaf_node,new_node)[0].data.numpy()[0]
+        # print('find_insert(%s,%s,%s) ' % (leaf_node.id, new_node.id, pw_score))
         curr = leaf_node
         ap = self.hallucinate_merge(curr, new_node, pw_score)
         new_score = self.model.e_score(ap).data.numpy()[0]
-        print('\tcurr %s' % curr.id)
-        print('\tcurr.parent %s' % curr.parent.id if curr.parent else "None")
-        print('\tnew_score %s' % new_score)
+        number_e_scores += 1
+        time_before_rotation = time.time()
+        # print('\tcurr %s' % curr.id)
+        # print('\tcurr.parent %s' % curr.parent.id if curr.parent else "None")
+        # print('\tnew_score %s' % new_score)
         if self.perform_rotation:
             while curr.parent is not None:
-                print('\t curr.parent.my_score %s' % curr.parent.my_score)
+                # print('\t curr.parent.my_score %s' % curr.parent.my_score)
                 if new_score > curr.parent.my_score:
-                    print('\tnew_score > curr.parent.my_score, breaking')
+                    # print('\tnew_score > curr.parent.my_score, breaking')
                     break
                 else:
                     curr = curr.parent
                     ap = self.hallucinate_merge(curr, new_node, pw_score)
                     new_score = self.model.e_score(ap).data.numpy()[0]
-                    print('\tcurr %s' % curr.id)
-                    print('\tcurr.parent %s' % (curr.parent.id if curr.parent else "None"))
-                    print('\tnew_score %s' % new_score)
-        return curr, ap, new_score
+                    number_e_scores += 1
+                    # print('\tcurr %s' % curr.id)
+                    # print('\tcurr.parent %s' % (curr.parent.id if curr.parent else "None"))
+                    # print('\tnew_score %s' % new_score)
+        time_after_rotation = time.time()
+        self.rotation_time[0] += time_after_rotation - start_time
+        self.rotation_time[1] += time_after_rotation - start_time
+        self.rotation_comps[0] += number_e_scores
+        self.rotation_comps[1] += number_e_scores
+        return curr, ap, new_score, time_before_rotation,time_after_rotation
 
     def update_with_leaf(self,curr,new_leaf,new_leaf_anc):
         node_who_is_not_anc = curr.children[0] if curr.children[0] not in new_leaf_anc else curr.children[1]
@@ -270,12 +364,12 @@ class Gerch(object):
         if for_leaf:
             e_score = self.update_with_leaf(curr,new_leaf,new_leaf_anc).data.numpy()[0]
         else:
-            e_score = self.score(curr).data.numpy()[0]
-        if e_score != curr.my_score:
-            print('Updated my_score %s of curr my_score %s aproj_local[\'es\'] %s to be %s' % (curr.my_score,
-                                                                                               curr.as_ment.attributes.aproj_local[
-                                                                                                   'es'] if 'es' in curr.as_ment.attributes.aproj_local else "None",
-                                                                                               curr.id, e_score))
+            e_score = self.score_np(curr)
+        # if e_score != curr.my_score:
+            # print('Updated my_score %s of curr my_score %s aproj_local[\'es\'] %s to be %s' % (curr.my_score,
+            #                                                                                    curr.as_ment.attributes.aproj_local[
+            #                                                                                        'es'] if 'es' in curr.as_ment.attributes.aproj_local else "None",
+            #                                                                                    curr.id, e_score))
         curr.my_score = e_score
         curr.as_ment.attributes.aproj_local['es'] = e_score
 
@@ -294,158 +388,197 @@ class Gerch(object):
 
         p_ment = MentNode([p], aproj=p[0].attributes)
         p_ment.cluster_marker = True
-
-        print()
-        print()
-        print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
-        print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+        start_time = time.time()
         print('Inserting p (%s,%s,%s) into tree ' % (p_ment.id,p[1],p[2]))
         if self.root is None:
             self.root = p_ment
-            # self.mention_nn_structure.insert(p_ment)
             self.nn_structure.insert(p_ment)
         else:
             # Find k nearest neighbors
 
+            time_start_placement = time.time()
             if self.config.add_to_mention:
                 offlimits = set([d.nsw_node for d in self.root.descendants() if d.point_counter > 1 if d.nsw_node])
             else:
                 offlimits = set()
 
-            print('##########################################')
-            print("#### KNN SEARCH W/ New Point %s #############" % p_ment.id)
+            # print('##########################################')
+            # print("#### KNN SEARCH W/ New Point %s #############" % p_ment.id)
 
+            insert_start_time = time.time()
             knn_and_score,num_searched_approx = self.nn_structure.knn_and_score_offlimits(p_ment, offlimits, k=self.nn_k,
                                                                       r=self.nsw_r)
+            insert_end_time = time.time()
+            self.insert_comps[0] += num_searched_approx
+            self.insert_comps[1] += num_searched_approx
+            self.insert_time[0] += insert_end_time - insert_start_time
+            self.insert_time[1] += insert_end_time - insert_start_time
             self.num_computations += num_searched_approx
 
             approximate_closest_node, approx_closest_score = knn_and_score[0][1].v, knn_and_score[0][0]
 
-            possible_nn_with_same_class = p[1] in self.observed_classes
+            # possible_nn_with_same_class = p[1] in self.observed_classes
 
-            print("#KnnSearchRes\tNewMention\tapprox=%s\tapprox_score=%s" %
-                  (approximate_closest_node.id,approx_closest_score))
-
-            print("#NumSearched\tNewMention\tapprox=%s\tnsw_edges=%s"
-                  "\ttree_nodes=%s\tscore=%s\tposs=%s"
-                  % (
-                    num_searched_approx,
-                    self.nn_structure.num_edges,p_idx * 2 - 1,
-                    approx_closest_score,possible_nn_with_same_class
-            ))
-
-            print('##########################################')
-            print()
-            print('##########################################')
-            print("############## KNN ADD %s #############" % p_ment.id)
-
-            # Add yourself to the knn structures
-            self.nn_structure.insert(p_ment)
-            print('##########################################')
-            print()
-            print('##########################################')
-            print('############## Find Insert Stop ##########')
+            # print("#KnnSearchRes\tNewMention\tapprox=%s\tapprox_score=%s" %
+            #       (approximate_closest_node.id,approx_closest_score))
+            #
+            # print("#NumSearched\tNewMention\tapprox=%s\tnsw_edges=%s"
+            #       "\ttree_nodes=%s\tscore=%s\tposs=%s"
+            #       % (
+            #         num_searched_approx,
+            #         self.nn_structure.num_edges,p_idx * 2 - 1,
+            #         approx_closest_score,possible_nn_with_same_class
+            # ))
+            #
+            # print('##########################################')
+            # print()
+            # print('##########################################')
+            # print("############## KNN ADD %s #############" % p_ment.id)
+            #
+            #
+            # print('##########################################')
+            # print()
+            # print('##########################################')
+            # print('############## Find Insert Stop ##########')
 
             # Find where to be added / rotate
-            insert_node, new_ap, new_score = self.find_insert(knn_and_score[0][1].v,
-                                                              p_ment,
-                                                              knn_and_score[0][0])
-            print('Splitting Down at %s with new scores %s' % (insert_node.id, new_score))
+            insert_node, new_ap, new_score, time_before_rotation,time_finish_placement = self.find_insert(approximate_closest_node,
+                                                              p_ment)
+            # print('Splitting Down at %s with new scores %s' % (insert_node.id, new_score))
+
+
+            # print('#TimeNNFindTime\t%s\t%s' % (time_before_rotation - time_start_placement,time_before_rotation-start_time))
+            # print('#TimeUntilAfterRotation\t%s\t%s' % (time_finish_placement - time_start_placement,time_finish_placement-start_time))
+
+            time_before_insert = time.time()
+            # Add yourself to the knn structures
+            num_comp_insertions = self.nn_structure.insert(p_ment)
+            time_after_insert = time.time()
+
+            self.insert_comps[0] += num_comp_insertions
+            self.insert_comps[1] += num_comp_insertions
+            self.insert_time[0] += time_after_insert - time_before_insert
+            self.insert_time[1] += time_after_insert - time_before_insert
+
+            # print('#TimeAddPointToNSW\t%s\t%s' % (time_after_insert-time_before_insert,time_after_insert-start_time))
 
             # Add the point
             new_internal_node = insert_node.split_down(p_ment, new_ap, new_score)
+
             assert p_ment.root() == insert_node.root(), "p_ment.root() %s == insert_node.root() %s" % (
             p_ment.root(), insert_node.root())
             assert p_ment.lca(
                 insert_node) == new_internal_node, "p_ment.lca(insert_node) %s == new_internal_node %s" % (
             p_ment.lca(insert_node), new_internal_node)
 
-            print('Created new node %s ' % new_internal_node.id)
+            # print('Created new node %s ' % new_internal_node.id)
 
             # Update throughout the tree.
             if new_internal_node.parent:
                 new_internal_node.parent.update_aps(p[0].attributes,self.model.sub_ent_model)
 
             # update all the entity scores
+            before_update_time = time.time()
             curr = new_internal_node
             new_leaf_anc = p_ment._ancestors()
+            num_updates_here = 0
             while curr:
                 self.update_for_new(curr,p_ment,new_leaf_anc,True)
                 curr = curr.parent
-            print('##########################################')
-            print()
-            print('##########################################')
-            print("############## KNN ADD %s #############" % new_internal_node.id)
+                num_updates_here += 1
+            after_update_time = time.time()
+            self.insert_comps[0] += num_updates_here
+            self.insert_comps[1] += num_updates_here
+            self.insert_time[0] += after_update_time - before_update_time
+            self.insert_time[1] += after_update_time - before_update_time
+
+
+            # print('#TimeForUpdateOfNewPt\t%s\t%s' %(after_update_time-before_update_time,after_update_time-start_time))
+            # print('##########################################')
+            # print()
+            # print('##########################################')
+            # print("############## KNN ADD %s #############" % new_internal_node.id)
 
             # Add the newly created node to the NN structure
-            self.nn_structure.insert(new_internal_node)
-            print()
-            print('##########################################')
-            print()
+            time_before_insert = time.time()
+            num_comp_insertions = self.nn_structure.insert(new_internal_node)
+            time_after_insert = time.time()
+            self.insert_comps[0] += num_comp_insertions
+            self.insert_comps[1] += num_comp_insertions
+            self.insert_time[0] += time_after_insert - time_before_insert
+            self.insert_time[1] += time_after_insert - time_before_insert
+
+            # print('#TimeAddInternalNodetoNSW\t%s\t%s' % (time_after_insert - time_before_insert, time_after_insert - start_time))
+
+            # print()
+            # print('##########################################')
+            # print()
 
             self.root = self.root.root()
-
+            time_before_graft = time.time()
+            total_graft_comps = 0
             if self.perform_graft:
                 graft_index = 0
 
                 curr = new_internal_node
                 while curr.parent:
-                    print()
-                    print("=============================================")
-                    print('Curr %s CurrType %s ' % (curr.id, type(curr)))
+                    time_before_this_graft = time.time()
+                    # print()
+                    # print("=============================================")
+                    # print('Curr %s CurrType %s ' % (curr.id, type(curr)))
+                    #
+                    # print('Finding Graft for %s ' % curr.id)
+                    #
+                    # print('##########################################')
+                    # print("#### KNN SEARCH W/ Node %s #########" % curr.id)
 
-                    # find nearest neighbor in entity space (not one of your descendants)
-                    def filter_condition(n):
-                        if n.deleted or n == curr:
-                            return False
-                        else:
-                            return True
+                    time_before_offlimits = time.time()
+                    offlimits = set(
+                        [x.nsw_node for x in (curr.siblings() + curr.descendants() + curr._ancestors() + [curr])])
+                    time_after_offlimits = time.time()
+                    # print('#TimeFindOfflimits\t%s\t%s' % (time_after_offlimits-time_before_offlimits,time_after_offlimits-start_time))
 
-                    def allowable_graft(n):
-                        if n.deleted:
-                            print('Deleted')
-                            return False
-                        if n.parent is None:
-                            # print('Parent is None')
-                            return False
-                        if curr in n.siblings():
-                            # print('curr in sibs')
-                            return False
-                        lca = curr.lca(n)
-                        if lca != curr and lca != n:
-                            # print("Found candidate - returning true")
-                            return True
-                        else:
-                            # print('lca = curr %s lca = n %s' % (lca == curr, lca == n))
-                            return False
-
-                    print('Finding Graft for %s ' % curr.id)
-
-                    print('##########################################')
-                    print("#### KNN SEARCH W/ Node %s #########" % curr.id)
-
-                    offlimits = set([x.nsw_node for x in (curr.siblings() + curr.descendants() + curr._ancestors() + [curr])])
-
-                    knn_and_score,num_searched_approx = self.nn_structure.knn_and_score_offlimits(curr, offlimits, k=self.nn_k,
-                                                                              r=self.nsw_r)
-
+                    time_before_graft_nn_search = time.time()
+                    knn_and_score,num_searched_approx = self.nn_structure.knn_and_score_mention(curr,offlimits,
+                                                                            k=self.nn_k,
+                                                                            r=self.nsw_r)
+                    time_after_graft_nn_search = time.time()
+                    # print('#TimeNNGraftSearch\t%s\t%s' %(time_after_graft_nn_search-time_before_graft_nn_search,time_after_graft_nn_search-start_time))
                     self.num_computations += num_searched_approx
+                    total_graft_comps += num_searched_approx
 
-                    if len(knn_and_score) == 0:
-                        print("#NumSearched\tGraft\tapprox=%s\texact=%s\tnsw_edges=%s\terror="
-                          % (num_searched_approx,self.nn_structure.num_edges,
-                             p_idx * 2))
-                    print('##########################################')
-                    print()
+                    # if len(knn_and_score) == 0:
+                    #     print("#NumSearched\tGraft\tapprox=%s\texact=%s\tnsw_edges=%s\terror="
+                    #       % (num_searched_approx,self.nn_structure.num_edges,
+                    #          p_idx * 2))
+                    # print('##########################################')
+                    # print()
 
                     if len(knn_and_score) > 0:
                         approximate_closest_node, approx_closest_score = knn_and_score[0][1].v, knn_and_score[0][0]
-                        approximate_closest_node_sib = approximate_closest_node.siblings()[0]
-                        print("#NumSearched\tGraft\tapprox=%s\tnsw_edges=%s\ttree_nodes=%s\terror=%s"
-                             % (num_searched_approx, self.nn_structure.num_edges,
-                                p_idx * 2, np.abs(approx_closest_score)))
-                        print("#KnnSearchRes\tGraft\tapprox=%s\tapprox_score=%s" %
-                              (approximate_closest_node.id, approx_closest_score))
+                        # print("#NumSearched\tGraft\tapprox=%s\tnsw_edges=%s\ttree_nodes=%s\terror=%s"
+                        #      % (num_searched_approx, self.nn_structure.num_edges,
+                        #         p_idx * 2, np.abs(approx_closest_score)))
+                        # print("#KnnSearchRes\tGraft\tapprox=%s\tapprox_score=%s" %
+                        #       (approximate_closest_node.id, approx_closest_score))
+
+                        def allowable_graft(n):
+                            if n.deleted:
+                                print('Deleted')
+                                return False
+                            if n.parent is None:
+                                # print('Parent is None')
+                                return False
+                            if curr in n.siblings():
+                                # print('curr in sibs')
+                                return False
+                            lca = curr.lca(n)
+                            if lca != curr and lca != n:
+                                # print("Found candidate - returning true")
+                                return True
+                            else:
+                                # print('lca = curr %s lca = n %s' % (lca == curr, lca == n))
+                                return False
 
                         # allowed = allowable_graft(best)
                         allowed = True
@@ -453,19 +586,47 @@ class Gerch(object):
                             # self.graft_recorder.records.append(GraftMetaData(self, curr, best, False,False,False))
                             pass
                         else:
-                            print(approx_closest_score)
-                            print(curr.parent.my_score)
-                            print(approximate_closest_node.parent.my_score)
-                            print('Best %s BestTypes %s ' % (approximate_closest_node.id,type(approximate_closest_node)))
-                            approx_says_perform_graft = approx_closest_score > curr.parent.my_score and approx_closest_score > approximate_closest_node.parent.my_score
+                            # print(approx_closest_score)
+                            # print(curr.parent.my_score)
+                            # print(approximate_closest_node.parent.my_score)
+                            # print('Best %s BestTypes %s ' % (approximate_closest_node.id,type(approximate_closest_node)))
 
-                            print('(Approx.) Candidate Graft: (best: %s, score: %s) to (%s,par.score %s) from (%s,par.score %s)' %
-                                  (approximate_closest_node.id,approx_closest_score,curr.id,curr.parent.my_score,approximate_closest_node.id,approximate_closest_node.parent.my_score))
+                            you_like_them_better = approx_closest_score > curr.parent.my_score
+                            they_like_you_better = approx_closest_score > approximate_closest_node.parent.my_score
+
+                            approx_says_perform_graft = you_like_them_better and they_like_you_better
+                            is_allowable = True
+                            while you_like_them_better \
+                                    and not they_like_you_better \
+                                    and is_allowable \
+                                    and approximate_closest_node.parent \
+                                    and approximate_closest_node.parent.parent:
+                                approximate_closest_node = approximate_closest_node.parent
+                                is_allowable = allowable_graft(approximate_closest_node)
+                                if is_allowable:
+                                    best_pw,best_pw_n1,best_pw_n2 = self.best_pairwise(curr,approximate_closest_node)
+                                    new_ap_graft = self.hallucinate_merge(curr, approximate_closest_node,
+                                                                      best_pw.data.numpy()[0])
+                                    approx_closest_score = self.model.e_score(new_ap_graft).data.numpy()[0]
+                                    total_graft_comps += 1
+                                    you_like_them_better = approx_closest_score > curr.parent.my_score
+                                    they_like_you_better = approx_closest_score > approximate_closest_node.parent.my_score
+
+                                    approx_says_perform_graft = you_like_them_better and they_like_you_better
+
+
+                            # if you like them better than your current sibling, but they don't like you better then you
+                            # want to check the parent of them.
+
+
+                            # print('(Approx.) Candidate Graft: (best: %s, score: %s) to (%s,par.score %s) from (%s,par.score %s)' %
+                            #       (approximate_closest_node.id,approx_closest_score,curr.id,curr.parent.my_score,approximate_closest_node.id,approximate_closest_node.parent.my_score))
                             # Perform Graft
-                            print("#GraftSuggestions\tp_idx=%s\tg_idx=%s\tapprox=%s" %
-                                  (p_idx,graft_index,approx_says_perform_graft))
+                            # print("#GraftSuggestions\tp_idx=%s\tg_idx=%s\tapprox=%s" %
+                            #       (p_idx,graft_index,approx_says_perform_graft))
 
                             if approx_says_perform_graft:
+                                approximate_closest_node_sib = approximate_closest_node.siblings()[0]
 
                                 # Write the tree before the graft
                                 if self.config.write_every_tree:
@@ -474,341 +635,146 @@ class Gerch(object):
                                                                      p_idx, graft_index)), self.root,
                                                         [approximate_closest_node.id, curr.id],[p_ment.id])
                                 # self.graft_recorder.records.append(GraftMetaData(self, best, curr, True, True, False))
-                                print("Performing graft: ")
+                                # print("Performing graft: ")
                                 best_pw,best_pw_n1,best_pw_n2 = self.best_pairwise(curr,approximate_closest_node)
-                                print('best_pw = %s %s %s' % (best_pw_n1,best_pw_n2,best_pw))
+                                # print('best_pw = %s %s %s' % (best_pw_n1,best_pw_n2,best_pw))
                                 new_ap_graft = self.hallucinate_merge(curr,approximate_closest_node,best_pw.data.numpy()[0])
                                 new_graft_internal = curr.graft_to_me(approximate_closest_node, new_aproj=new_ap_graft, new_my_score=None) # We don't want a pw guy here.
 
-                                print('Finished Graft')
-                                print('updating.....')
+                                # print('Finished Graft')
+                                # print('updating.....')
                                 # Update nodes
+
+                                # This updates the ancestors of the current node after the graft
+
+                                before_update_time = time.time()
                                 curr_update = new_graft_internal
                                 while curr_update:
-                                    e_score = self.score(curr_update).data.numpy()[0]
-                                    if e_score != curr_update.my_score:
-                                        print(
-                                            'Updated my_score %s of curr my_score %s aproj_local[\'es\'] %s to be %s' % (
-                                            curr.my_score,
-                                            curr.as_ment.attributes.aproj_local[
-                                                'es'] if 'es' in curr.as_ment.attributes.aproj_local else "None",
-                                            curr.id, e_score))
-                                        curr_update.my_score = e_score
-                                    curr.as_ment.attributes.aproj_local['es'] = e_score
+                                    e_score = self.score_np(curr_update)
+                                    total_graft_comps += 1
+                                    # if e_score != curr_update.my_score:
+                                    #     print(
+                                    #         'Updated my_score %s of curr my_score %s aproj_local[\'es\'] %s to be %s' % (
+                                    #             curr_update.my_score,
+                                    #             curr_update.as_ment.attributes.aproj_local[
+                                    #             'es'] if 'es' in curr_update.as_ment.attributes.aproj_local else "None",
+                                    #             curr_update.id, e_score))
+                                    curr_update.my_score = e_score
+                                    curr_update.as_ment.attributes.aproj_local['es'] = e_score
+                                    if curr_update.parent is None:
+                                        self.root = curr_update
                                     curr_update = curr_update.parent
-                                # Set the root of the tree after the graft: TODO: This could be sped up by being in the update loop
-                                self.root = new_graft_internal.root()
-                                print('##########################################')
-                                print("############## KNN ADD %s #############" % new_graft_internal.id)
-                                print('Adding new node to NSW')
-                                self.nn_structure.insert(new_graft_internal)
-                                print('Updating NSW for sibling of node that was grafted')
-                                self.nn_structure.add_tree_edges(approximate_closest_node_sib)
-                                print('##########################################')
+                                after_update_time = time.time()
+
+
+                                # This updates the ancestors of the node which was grafted to you:
+                                sibling_of_grafted_node = approximate_closest_node_sib
+                                curr_update = sibling_of_grafted_node.parent
+                                while curr_update:
+                                    e_score = self.score_np(curr_update)
+                                    total_graft_comps += 1
+                                    # if e_score != curr_update.my_score:
+                                    #     print(
+                                    #         '[From Graftees old sib] Updated my_score %s of curr my_score %s aproj_local[\'es\'] %s to be %s' % (
+                                    #             curr_update.my_score,
+                                    #             curr_update.as_ment.attributes.aproj_local[
+                                    #             'es'] if 'es' in curr_update.as_ment.attributes.aproj_local else "None",
+                                    #             curr_update.id, e_score))
+                                    curr_update.my_score = e_score
+                                    curr_update.as_ment.attributes.aproj_local['es'] = e_score
+                                    curr_update = curr_update.parent
+
+                                print('#TimeForUpdateInGraft\t%s\t%s' % (after_update_time-before_update_time,after_update_time - start_time))
+                                # print('##########################################')
+                                # print("############## KNN ADD %s #############" % new_graft_internal.id)
+                                # print('Adding new node to NSW')
+                                insert_comps = self.nn_structure.insert(new_graft_internal)
+                                total_graft_comps += insert_comps
+                                # print('##########################################')
                                 # Write the tree after the graft
                                 if self.config.write_every_tree:
                                     Graphviz.write_tree(os.path.join(self.config.canopy_out,
                                                                      'tree_%s_post_graft_%s.gv' % (p_idx, graft_index)),
                                                         self.root, [approximate_closest_node.id, curr.id],[p_ment.id])
 
-                            else:
+                            # else:
                                 # self.graft_recorder.records.append(GraftMetaData(self, best, curr, False, True, False))
-                                print('Chose not to graft.')
+                                # print('Chose not to graft.')
 
-                    else:
+                    # else:
                         # self.graft_recorder.records.append(GraftMetaData(self, None, curr, False, False, True))
-                        print('No possible grafts for %s ' % curr.id)
+                        # print('No possible grafts for %s ' % curr.id)
                     graft_index += 1
                     curr = curr.parent
-                    print("=============================================")
-                    print()
-        print()
-        print('Done inserting p (%s,%s,%s) into tree ' % (p_ment.id, p[1], p[2]))
-        print('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
-        print('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
-        print()
+                    time_after_this_graft = time.time()
+                    print("#TimeAfterThisGraftProposal\t%s\t%s" % (
+                    time_after_this_graft - time_before_this_graft, time_after_this_graft - start_time))
+                    # print("=============================================")
+                    # print()
+                    end_time = time.time()
+                    if curr.parent is None:
+                        self.grafting_time[0] += end_time - time_before_graft
+                        self.grafting_time[1] += end_time - time_before_graft
+                        self.grafting_comps[0] += total_graft_comps
+                        self.grafting_comps[1] += total_graft_comps
+                        print("#TimeAfterAllGrafts\t%s\t%s" % (
+                            end_time - time_before_graft, end_time - start_time))
+        end_time = time.time()
+        print('Done Inserting p (%s,%s,%s) into tree in %s seconds  ' % (p_ment.id, p[1], p[2],end_time-start_time))
         self.observed_classes.add(p[1])
+        sys.stdout.flush()
         if self.config.write_every_tree:
             if len(self.config.canopy_out) > 0:
                 Graphviz.write_tree(os.path.join(self.config.canopy_out,
                                              'tree_%s.gv' % p_idx), self.root,[], [p_ment.id])
                 if self.config.nn_structure == 'nsw':
                     GraphvizNSW.write_nsw(os.path.join(self.config.canopy_out, 'nsw_%s.gv' % p_idx), self.nn_structure)
-
-
-    def insert_instrumented(self, p,p_idx):
-        """
-        Incrementally add p to the tree.
-
-        :param p - (MentObject,GroundTruth,Id)
-        """
-
-        p_ment = MentNode([p], aproj=p[0].attributes)
-        p_ment.cluster_marker = True
-
-        print()
-        print()
-        print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
-        print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
-        print('Inserting p (%s,%s,%s) into tree ' % (p_ment.id,p[1],p[2]))
-        if self.root is None:
-            self.root = p_ment
-            # self.mention_nn_structure.insert(p_ment)
-            self.nn_structure.insert(p_ment)
-        else:
-            # Find k nearest neighbors
-
-            # offlimits = set([d.nsw_node for d in self.root.descendants() if d.point_counter > 1 if d.nsw_node])
-            offlimits = set() #[d.nsw_node for d in self.root.descendants() if d.point_counter > 1 if d.nsw_node])
-
-            print('##########################################')
-            print("#### KNN SEARCH W/ New Point %s #############" % p_ment.id)
-
-            knn_and_score,num_searched_approx = self.nn_structure.knn_and_score_offlimits(p_ment, offlimits, k=self.nn_k,
-                                                                      r=self.nsw_r)
-            exact_knn_and_score,num_searched_exact = self.nn_structure.exact_knn(p_ment, offlimits, k=self.nn_k,
-                                                                      r=self.nsw_r)
-            self.num_computations += num_searched_approx
-
-            approximate_closest_node, approx_closest_score = knn_and_score[0][1].v, knn_and_score[0][0]
-            exact_closest_node, exact_closest_score = exact_knn_and_score[0][1].v, exact_knn_and_score[0][0]
-
-            possible_nn_with_same_class = p[1] in self.observed_classes
-            approx_pure_subtree = self.pure_subtree_with(p_ment, approximate_closest_node)
-            exact_pure_subtree = self.pure_subtree_with(p_ment, exact_closest_node)
-
-
-
-            approx_eq_exact = approximate_closest_node == exact_closest_node
-            print("#KnnSearchRes\tNewMention\t%s\tapprox=%s\tapprox_score=%s\texact=%s\texact_score=%s" %
-                  (approx_eq_exact,approximate_closest_node.id,approx_closest_score,
-                   exact_closest_node.id,exact_closest_score))
-
-            print("#NumSearched\tNewMention\tapprox=%s\texact=%s\tnsw_edges=%s"
-                  "\ttree_nodes=%s\tspeedup=%s\terror=%s\tposs=%s\tapprox_same_class=%s\t"
-                  "exact_same_class=%s" % (
-            num_searched_approx, num_searched_exact,
-            self.nn_structure.num_edges,p_idx * 2 - 1,
-            num_searched_approx-num_searched_exact,
-            np.abs(approx_closest_score-exact_closest_score),possible_nn_with_same_class,
-            approx_pure_subtree,exact_pure_subtree))
-
-            print('##########################################')
-            print()
-            print('##########################################')
-            print("############## KNN ADD %s #############" % p_ment.id)
-
-            # Add yourself to the knn structures
-            self.nn_structure.insert(p_ment)
-            print('##########################################')
-            print()
-            print('##########################################')
-            print('############## Find Insert Stop ##########')
-
-            # Find where to be added / rotate
-            insert_node, new_ap, new_score = self.find_insert(knn_and_score[0][1].v,
-                                                              p_ment,
-                                                              knn_and_score[0][0])
-            print('Splitting Down at %s with new scores %s' % (insert_node.id, new_score))
-
-            # Add the point
-            new_internal_node = insert_node.split_down(p_ment, new_ap, new_score)
-            assert p_ment.root() == insert_node.root(), "p_ment.root() %s == insert_node.root() %s" % (
-            p_ment.root(), insert_node.root())
-            assert p_ment.lca(
-                insert_node) == new_internal_node, "p_ment.lca(insert_node) %s == new_internal_node %s" % (
-            p_ment.lca(insert_node), new_internal_node)
-
-            print('Created new node %s ' % new_internal_node.id)
-
-            # Update throughout the tree.
-            if new_internal_node.parent:
-                new_internal_node.parent.update_aps(p[0].attributes,self.model.sub_ent_model)
-
-            # update all the entity scores
-            curr = new_internal_node
-            new_leaf_anc = p_ment._ancestors()
-            while curr:
-                self.update_for_new(curr,p_ment,new_leaf_anc,True)
-                curr = curr.parent
-            print('##########################################')
-            print()
-            print('##########################################')
-            print("############## KNN ADD %s #############" % new_internal_node.id)
-
-            # Add the newly created node to the NN structure
-            self.nn_structure.insert(new_internal_node)
-            print()
-            print('##########################################')
-            print()
-
-            self.root = self.root.root()
-
-            if self.perform_graft:
-                graft_index = 0
-
-                curr = new_internal_node
-                while curr.parent:
-                    print()
-                    print("=============================================")
-                    print('Curr %s CurrType %s ' % (curr.id, type(curr)))
-
-                    # find nearest neighbor in entity space (not one of your descendants)
-                    def filter_condition(n):
-                        if n.deleted or n == curr:
-                            return False
-                        else:
-                            return True
-
-                    def allowable_graft(n):
-                        if n.deleted:
-                            print('Deleted')
-                            return False
-                        if n.parent is None:
-                            # print('Parent is None')
-                            return False
-                        if curr in n.siblings():
-                            # print('curr in sibs')
-                            return False
-                        lca = curr.lca(n)
-                        if lca != curr and lca != n:
-                            # print("Found candidate - returning true")
-                            return True
-                        else:
-                            # print('lca = curr %s lca = n %s' % (lca == curr, lca == n))
-                            return False
-
-                    print('Finding Graft for %s ' % curr.id)
-
-                    print('##########################################')
-                    print("#### KNN SEARCH W/ Node %s #########" % curr.id)
-
-                    offlimits = set([x.nsw_node for x in (curr.siblings() + curr.descendants() + curr._ancestors() + [curr])])
-
-                    knn_and_score,num_searched_approx = self.nn_structure.knn_and_score_offlimits(curr, offlimits, k=self.nn_k,
-                                                                              r=self.nsw_r)
-                    exact_knn_and_score,num_searched_exact = self.nn_structure.exact_knn(curr, offlimits, k=self.nn_k,
-                                                                              r=self.nsw_r)
-                    self.num_computations += num_searched_approx
-
-                    if len(knn_and_score) == 0:
-                        print("#NumSearched\tGraft\tapprox=%s\texact=%s\tnsw_edges=%s\ttree_nodes=%s\tspeedup=%s\terror="
-                          % (num_searched_approx, num_searched_exact,self.nn_structure.num_edges,
-                             p_idx * 2,num_searched_exact-num_searched_approx))
-                    print('##########################################')
-                    print()
-
-                    if len(knn_and_score) > 0:
-
-                        approximate_closest_node, approx_closest_score = knn_and_score[0][1].v, knn_and_score[0][0]
-                        exact_closest_node, exact_closest_score = exact_knn_and_score[0][1].v, exact_knn_and_score[0][0]
-                        print("#NumSearched\tGraft\tapprox=%s\texact=%s\tnsw_edges=%s\ttree_nodes=%s\tspeedup=%s\terror=%s"
-                             % (num_searched_approx, num_searched_exact, self.nn_structure.num_edges,
-                                p_idx * 2, num_searched_exact - num_searched_approx, np.abs(approx_closest_score-exact_closest_score)))
-                        approx_eq_exact = approximate_closest_node == exact_closest_node
-                        print("#KnnSearchRes\tGraft\t%s\tapprox=%s\tapprox_score=%s\texact=%s\texact_score=%s" %
-                              (approx_eq_exact, approximate_closest_node.id, approx_closest_score,
-                               exact_closest_node.id, exact_closest_score))
-
-                        # allowed = allowable_graft(best)
-                        allowed = True
-                        if not allowed:
-                            # self.graft_recorder.records.append(GraftMetaData(self, curr, best, False,False,False))
-                            pass
-                        else:
-                            print(approx_closest_score)
-                            print(curr.parent.my_score)
-                            print(approximate_closest_node.parent.my_score)
-                            print('Best %s BestTypes %s ' % (approximate_closest_node.id,type(approximate_closest_node)))
-                            approx_says_perform_graft = approx_closest_score > curr.parent.my_score and approx_closest_score > approximate_closest_node.parent.my_score
-                            exact_says_perform_graft = exact_closest_score > curr.parent.my_score and exact_closest_score > exact_closest_node.parent.my_score
-
-                            print('(Approx.) Candidate Graft: (best: %s, score: %s) to (%s,par.score %s) from (%s,par.score %s)' %
-                                  (approximate_closest_node.id,approx_closest_score,curr.id,curr.parent.my_score,approximate_closest_node.id,approximate_closest_node.parent.my_score))
-                            print(
-                                '(Exact.) Candidate Graft: (best: %s, score: %s) to (%s,par.score %s) from (%s,par.score %s)' %
-                                (exact_closest_node.id, exact_closest_score, curr.id, curr.parent.my_score,
-                                 exact_closest_node.id, exact_closest_node.parent.my_score))
-                            # Perform Graft
-                            print("#GraftSuggestions\tp_idx=%s\tg_idx=%s\tsame=%s\tapprox=%s\texact=%s" %
-                                  (p_idx,graft_index,approx_says_perform_graft==exact_says_perform_graft,
-                                   approx_says_perform_graft,exact_says_perform_graft))
-
-                            if approx_says_perform_graft:
-
-                                # Write the tree before the graft
-                                if self.config.write_every_tree:
-                                    Graphviz.write_tree(os.path.join(self.config.canopy_out,
-                                                                     'tree_%s_before_graft_%s.gv' % (
-                                                                     p_idx, graft_index)), self.root,
-                                                        [approximate_closest_node.id, curr.id],[p_ment.id])
-                                # self.graft_recorder.records.append(GraftMetaData(self, best, curr, True, True, False))
-                                print("Performing graft: ")
-                                best_pw,best_pw_n1,best_pw_n2 = self.best_pairwise(curr,approximate_closest_node)
-                                print('best_pw = %s %s %s' % (best_pw_n1,best_pw_n2,best_pw))
-                                new_ap_graft = self.hallucinate_merge(curr,approximate_closest_node,best_pw.data.numpy()[0])
-                                new_graft_internal = curr.graft_to_me(approximate_closest_node, new_aproj=new_ap_graft, new_my_score=None) # We don't want a pw guy here.
-
-                                print('Finished Graft')
-                                print('updating.....')
-                                # Update nodes
-                                curr_update = new_graft_internal
-                                while curr_update:
-                                    e_score = self.score(curr_update).data.numpy()[0]
-                                    if e_score != curr_update.my_score:
-                                        print(
-                                            'Updated my_score %s of curr my_score %s aproj_local[\'es\'] %s to be %s' % (
-                                            curr.my_score,
-                                            curr.as_ment.attributes.aproj_local[
-                                                'es'] if 'es' in curr.as_ment.attributes.aproj_local else "None",
-                                            curr.id, e_score))
-                                        curr_update.my_score = e_score
-                                    curr.as_ment.attributes.aproj_local['es'] = e_score
-                                    curr_update = curr_update.parent
-                                # Set the root of the tree after the graft: TODO: This could be sped up by being in the update loop
-                                self.root = new_graft_internal.root()
-                                print('##########################################')
-                                print("############## KNN ADD %s #############" % new_graft_internal.id)
-                                print('Adding new node to NSW')
-                                self.nn_structure.insert(new_graft_internal)
-                                print('##########################################')
-                                # Write the tree after the graft
-                                if self.config.write_every_tree:
-                                    Graphviz.write_tree(os.path.join(self.config.canopy_out,
-                                                                     'tree_%s_post_graft_%s.gv' % (p_idx, graft_index)),
-                                                        self.root, [approximate_closest_node.id, curr.id],[p_ment.id])
-
-                            else:
-                                # self.graft_recorder.records.append(GraftMetaData(self, best, curr, False, True, False))
-                                print('Chose not to graft.')
-
-                    else:
-                        # self.graft_recorder.records.append(GraftMetaData(self, None, curr, False, False, True))
-                        print('No possible grafts for %s ' % curr.id)
-                    graft_index += 1
-                    curr = curr.parent
-                    print("=============================================")
-                    print()
-        print()
-        print('Done inserting p (%s,%s,%s) into tree ' % (p_ment.id, p[1], p[2]))
-        print('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
-        print('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
-        print()
-        self.observed_classes.add(p[1])
-        if self.config.write_every_tree:
-            if len(self.config.canopy_out) > 0:
-                Graphviz.write_tree(os.path.join(self.config.canopy_out,
-                                             'tree_%s.gv' % p_idx), self.root,[], [p_ment.id])
-                if self.config.nn_structure == 'nsw':
-                    GraphvizNSW.write_nsw(os.path.join(self.config.canopy_out, 'nsw_%s.gv' % p_idx), self.nn_structure)
-
+        return p_ment
 
     def build_dendrogram(self):
         idx = 0
+        tot_time = 0
         for p in self.dataset:
             print('[build dendrogram] Inserting pt number %s into tree' % idx)
-            self.insert(p, idx)
+            start_time = time.time()
+            p_ment = self.insert(p, idx)
             idx += 1
+            end_time = time.time()
+            this_pt_time = end_time-start_time
+            tot_time += this_pt_time
+            if self.config.time_debug:
+                self.e_hac_comps[0] = ((idx * (idx - 1)) / 2) * np.log2(idx)
+                self.e_hac_comps[1] += ((idx * (idx - 1)) / 2) * np.log2(idx)
+                p_depth = p_ment.depth()
+                print('#TimePerPoint\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s' % (idx, this_pt_time, tot_time, p_depth,
+                                                                                 self.insert_time[0],
+                                                                                 self.insert_time[1],
+                                                                                 self.rotation_time[0],
+                                                                                 self.rotation_time[1],
+                                                                                 self.grafting_time[0],
+                                                                                 self.grafting_time[1]))
+                print('#CompPerPoint\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s' % (
+                idx, self.e_hac_comps[0],self.e_hac_comps[1],
+                self.insert_comps[0] + self.rotation_comps[0] + self.grafting_comps[0],
+                self.insert_comps[1] + self.rotation_comps[1] + self.grafting_comps[1],
+                self.insert_comps[0],
+                self.insert_comps[1],
+                self.rotation_comps[0],
+                self.rotation_comps[1],
+                self.grafting_comps[0],
+                self.grafting_comps[1]))
+
+                print('#HallucinateMergeTime\t%s\t%s\t%s\t%s\t%s\t%s' % (idx, this_pt_time, tot_time, p_depth,
+                                                             self.time_in_hallucinate_merge[0],
+                                                             self.time_in_hallucinate_merge[1]))
+                print('#BestPWTime\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s' % (idx, this_pt_time, tot_time, p_depth,
+                                                                       self.time_in_best_pw[0],
+                                                                       self.time_in_best_pw[1],
+                                                                       (self.time_in_best_pw[1] / self.time_in_best_pw[4]) if self.time_in_best_pw[4] > 0 else 0,
+                                                                       self.time_in_best_pw[4],
+                                                                       self.time_in_leaves_best_pw[0],
+                                                                       self.time_in_leaves_best_pw[1]))
+                self.reset_time_stats()
         self.graft_recorder.report()
         return self.root
 
@@ -832,352 +798,3 @@ class Perch(Gerch):
 class Greedy(Gerch):
     def __init__(self, config, dataset, model):
         super(Greedy,self).__init__(config,dataset,model,perform_rotation=False,perform_graft=False)
-
-
-class BGerch(Gerch):
-    def __init__(self, config, dataset, model):
-        super(BGerch,self).__init__(config,dataset,model,perform_rotation=True,perform_graft=True)
-
-
-    def insert(self, p,p_idx):
-        """
-        Incrementally add p to the tree.
-
-        :param p - (MentObject,GroundTruth,Id)
-        """
-
-        p_ment = MentNode([p], aproj=p[0].attributes)
-        p_ment.cluster_marker = True
-
-        print()
-        print()
-        print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
-        print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
-        print('Inserting p (%s,%s,%s) into tree ' % (p_ment.id,p[1],p[2]))
-        if self.root is None:
-            self.root = p_ment
-            # self.mention_nn_structure.insert(p_ment)
-            self.nn_structure.insert(p_ment)
-        else:
-            # Find k nearest neighbors
-
-            if self.config.add_to_mention:
-                offlimits = set([d.nsw_node for d in self.root.descendants() if d.point_counter > 1 if d.nsw_node])
-            else:
-                offlimits = set()
-
-            print('##########################################')
-            print("#### KNN SEARCH W/ New Point %s #############" % p_ment.id)
-
-            knn_and_score,num_searched_approx = self.nn_structure.knn_and_score_offlimits(p_ment, offlimits, k=self.nn_k,
-                                                                      r=self.nsw_r)
-            self.num_computations += num_searched_approx
-
-            approximate_closest_node, approx_closest_score = knn_and_score[0][1].v, knn_and_score[0][0]
-
-            possible_nn_with_same_class = p[1] in self.observed_classes
-
-            print("#KnnSearchRes\tNewMention\tapprox=%s\tapprox_score=%s" %
-                  (approximate_closest_node.id,approx_closest_score))
-
-            print("#NumSearched\tNewMention\tapprox=%s\tnsw_edges=%s"
-                  "\ttree_nodes=%s\tscore=%s\tposs=%s"
-                  % (
-                    num_searched_approx,
-                    self.nn_structure.num_edges,p_idx * 2 - 1,
-                    approx_closest_score,possible_nn_with_same_class
-            ))
-
-            print('##########################################')
-            print()
-            print('##########################################')
-            print("############## KNN ADD %s #############" % p_ment.id)
-
-            # Add yourself to the knn structures
-            self.nn_structure.insert(p_ment)
-            print('##########################################')
-            print()
-            print('##########################################')
-            print('############## Find Insert Stop ##########')
-
-            # Find where to be added / rotate
-            insert_node, new_ap, new_score = self.find_insert(knn_and_score[0][1].v,
-                                                              p_ment,
-                                                              knn_and_score[0][0])
-            print('Splitting Down at %s with new scores %s' % (insert_node.id, new_score))
-
-            # Add the point
-            new_internal_node = insert_node.split_down(p_ment, new_ap, new_score)
-            assert p_ment.root() == insert_node.root(), "p_ment.root() %s == insert_node.root() %s" % (
-            p_ment.root(), insert_node.root())
-            assert p_ment.lca(
-                insert_node) == new_internal_node, "p_ment.lca(insert_node) %s == new_internal_node %s" % (
-            p_ment.lca(insert_node), new_internal_node)
-
-            print('Created new node %s ' % new_internal_node.id)
-
-            # Update throughout the tree.
-            if new_internal_node.parent:
-                new_internal_node.parent.update_aps(p[0].attributes,self.model.sub_ent_model)
-
-            # update all the entity scores
-            curr = new_internal_node
-            new_leaf_anc = p_ment._ancestors()
-            while curr:
-                self.update_for_new(curr,p_ment,new_leaf_anc,True)
-                curr = curr.parent
-            print('##########################################')
-            print()
-            print('##########################################')
-            print("############## KNN ADD %s #############" % new_internal_node.id)
-
-            # Add the newly created node to the NN structure
-            self.nn_structure.insert(new_internal_node)
-            print()
-            print('##########################################')
-            print()
-
-            self.root = self.root.root()
-
-            if self.perform_graft:
-                graft_index = 0
-                banish_index = 0
-
-                curr = new_internal_node
-                while curr.parent:
-                    grafted = False
-                    print()
-                    print("=============================================")
-                    print('Curr %s CurrType %s ' % (curr.id, type(curr)))
-
-                    print('Finding Graft for %s ' % curr.id)
-
-                    print('##########################################')
-                    print("#### KNN SEARCH W/ Node %s #########" % curr.id)
-
-                    offlimits = set([x.nsw_node for x in (curr.siblings() + curr.descendants() + curr._ancestors() + [curr])])
-
-                    knn_and_score,num_searched_approx = self.nn_structure.knn_and_score_offlimits(curr, offlimits, k=self.nn_k,
-                                                                              r=self.nsw_r)
-
-                    self.num_computations += num_searched_approx
-
-                    if len(knn_and_score) == 0:
-                        print("#NumSearched\tGraft\tapprox=%s\texact=%s\tnsw_edges=%s\terror="
-                          % (num_searched_approx,self.nn_structure.num_edges,
-                             p_idx * 2))
-                    print('##########################################')
-                    print()
-
-                    if len(knn_and_score) > 0:
-                        approximate_closest_node, approx_closest_score = knn_and_score[0][1].v, knn_and_score[0][0]
-                        approximate_closest_node_sib = approximate_closest_node.siblings()[0]
-                        print("#NumSearched\tGraft\tapprox=%s\tnsw_edges=%s\ttree_nodes=%s\terror=%s"
-                             % (num_searched_approx, self.nn_structure.num_edges,
-                                p_idx * 2, np.abs(approx_closest_score)))
-                        print("#KnnSearchRes\tGraft\tapprox=%s\tapprox_score=%s" %
-                              (approximate_closest_node.id, approx_closest_score))
-
-                        # allowed = allowable_graft(best)
-                        allowed = True
-                        if not allowed:
-                            # self.graft_recorder.records.append(GraftMetaData(self, curr, best, False,False,False))
-                            pass
-                        else:
-                            print(approx_closest_score)
-                            print(curr.parent.my_score)
-                            print(approximate_closest_node.parent.my_score)
-                            print('Best %s BestTypes %s ' % (approximate_closest_node.id,type(approximate_closest_node)))
-                            approx_says_perform_graft = approx_closest_score > curr.parent.my_score and approx_closest_score > approximate_closest_node.parent.my_score
-
-                            print('(Approx.) Candidate Graft: (best: %s, score: %s) to (%s,par.score %s) from (%s,par.score %s)' %
-                                  (approximate_closest_node.id,approx_closest_score,curr.id,curr.parent.my_score,approximate_closest_node.id,approximate_closest_node.parent.my_score))
-                            # Perform Graft
-                            print("#GraftSuggestions\tp_idx=%s\tg_idx=%s\tapprox=%s" %
-                                  (p_idx,graft_index,approx_says_perform_graft))
-
-                            if approx_says_perform_graft:
-                                grafted = True
-                                # Write the tree before the graft
-                                if self.config.write_every_tree:
-                                    Graphviz.write_tree(os.path.join(self.config.canopy_out,
-                                                                     'tree_%s_before_graft_%s.gv' % (
-                                                                     p_idx, graft_index)), self.root,
-                                                        [approximate_closest_node.id, curr.id],[p_ment.id])
-                                # self.graft_recorder.records.append(GraftMetaData(self, best, curr, True, True, False))
-                                print("Performing graft: ")
-                                best_pw,best_pw_n1,best_pw_n2 = self.best_pairwise(curr,approximate_closest_node)
-                                print('best_pw = %s %s %s' % (best_pw_n1,best_pw_n2,best_pw))
-                                new_ap_graft = self.hallucinate_merge(curr,approximate_closest_node,best_pw.data.numpy()[0])
-                                new_graft_internal = curr.graft_to_me(approximate_closest_node, new_aproj=new_ap_graft, new_my_score=None) # We don't want a pw guy here.
-
-                                print('Finished Graft')
-                                print('updating.....')
-                                # Update nodes
-                                curr_update = new_graft_internal
-                                while curr_update:
-                                    e_score = self.score(curr_update).data.numpy()[0]
-                                    if e_score != curr_update.my_score:
-                                        print(
-                                            'Updated my_score %s of curr my_score %s aproj_local[\'es\'] %s to be %s' % (
-                                            curr.my_score,
-                                            curr.as_ment.attributes.aproj_local[
-                                                'es'] if 'es' in curr.as_ment.attributes.aproj_local else "None",
-                                            curr.id, e_score))
-                                        curr_update.my_score = e_score
-                                    curr.as_ment.attributes.aproj_local['es'] = e_score
-                                    curr_update = curr_update.parent
-                                # Set the root of the tree after the graft: TODO: This could be sped up by being in the update loop
-                                self.root = new_graft_internal.root()
-                                print('##########################################')
-                                print("############## KNN ADD %s #############" % new_graft_internal.id)
-                                print('Adding new node to NSW')
-                                self.nn_structure.insert(new_graft_internal)
-                                print('Updating NSW for sibling of node that was grafted')
-                                self.nn_structure.add_tree_edges(approximate_closest_node_sib)
-                                print('##########################################')
-                                # Write the tree after the graft
-                                if self.config.write_every_tree:
-                                    Graphviz.write_tree(os.path.join(self.config.canopy_out,
-                                                                     'tree_%s_post_graft_%s.gv' % (p_idx, graft_index)),
-                                                        self.root, [approximate_closest_node.id, curr.id],[p_ment.id])
-
-                            else:
-                                # self.graft_recorder.records.append(GraftMetaData(self, best, curr, False, True, False))
-                                print('Chose not to graft.')
-
-                    else:
-                        # self.graft_recorder.records.append(GraftMetaData(self, None, curr, False, False, True))
-                        print('No possible grafts for %s ' % curr.id)
-                    graft_index += 1
-
-                    if not grafted:
-                        curr = curr.siblings()[0]
-
-                        print()
-                        print("=============================================")
-                        print('Curr %s CurrType %s ' % (curr.id, type(curr)))
-
-                        print('Finding Graft for %s ' % curr.id)
-
-                        print('##########################################')
-                        print("#### KNN SEARCH W/ Node %s #########" % curr.id)
-
-                        offlimits = set(
-                            [x.nsw_node for x in (curr.siblings() + curr.descendants() + curr._ancestors() + [curr])])
-
-                        knn_and_score, num_searched_approx = self.nn_structure.knn_and_score_offlimits(curr, offlimits,
-                                                                                                       k=self.nn_k,
-                                                                                                       r=self.nsw_r)
-
-                        self.num_computations += num_searched_approx
-
-                        if len(knn_and_score) == 0:
-                            print("#NumSearched\tGraft\tapprox=%s\texact=%s\tnsw_edges=%s\terror="
-                                  % (num_searched_approx, self.nn_structure.num_edges,
-                                     p_idx * 2))
-                        print('##########################################')
-                        print()
-
-                        if len(knn_and_score) > 0:
-                            approximate_closest_node, approx_closest_score = knn_and_score[0][1].v, knn_and_score[0][0]
-                            approximate_closest_node_sib = approximate_closest_node.siblings()[0]
-                            print("#NumSearched\tGraft\tapprox=%s\tnsw_edges=%s\ttree_nodes=%s\terror=%s"
-                                  % (num_searched_approx, self.nn_structure.num_edges,
-                                     p_idx * 2, np.abs(approx_closest_score)))
-                            print("#KnnSearchRes\tGraft\tapprox=%s\tapprox_score=%s" %
-                                  (approximate_closest_node.id, approx_closest_score))
-
-                            # allowed = allowable_graft(best)
-                            allowed = True
-                            if not allowed:
-                                # self.graft_recorder.records.append(GraftMetaData(self, curr, best, False,False,False))
-                                pass
-                            else:
-                                print(approx_closest_score)
-                                print(curr.parent.my_score)
-                                print(approximate_closest_node.parent.my_score)
-                                print(
-                                    'Best %s BestTypes %s ' % (approximate_closest_node.id, type(approximate_closest_node)))
-                                approx_says_perform_graft = approx_closest_score > curr.parent.my_score and approx_closest_score > approximate_closest_node.parent.my_score
-
-                                print(
-                                    '(Approx.) Candidate Graft: (best: %s, score: %s) to (%s,par.score %s) from (%s,par.score %s)' %
-                                    (approximate_closest_node.id, approx_closest_score, curr.id, curr.parent.my_score,
-                                     approximate_closest_node.id, approximate_closest_node.parent.my_score))
-                                # Perform Graft
-                                print("#GraftSuggestions\tp_idx=%s\tg_idx=%s\tapprox=%s" %
-                                      (p_idx, graft_index, approx_says_perform_graft))
-
-                                if approx_says_perform_graft:
-
-                                    # Write the tree before the graft
-                                    if self.config.write_every_tree:
-                                        Graphviz.write_tree(os.path.join(self.config.canopy_out,
-                                                                         'tree_%s_before_banish_%s.gv' % (
-                                                                             p_idx, graft_index)), self.root,
-                                                            [approximate_closest_node.id, curr.id], [p_ment.id])
-                                    # self.graft_recorder.records.append(GraftMetaData(self, best, curr, True, True, False))
-                                    print("Performing graft: ")
-                                    best_pw, best_pw_n1, best_pw_n2 = self.best_pairwise(curr, approximate_closest_node)
-                                    print('best_pw = %s %s %s' % (best_pw_n1, best_pw_n2, best_pw))
-                                    new_ap_graft = self.hallucinate_merge(curr, approximate_closest_node,
-                                                                          best_pw.data.numpy()[0])
-                                    new_graft_internal = approximate_closest_node.graft_to_me(curr, new_aproj=new_ap_graft,
-                                                                          new_my_score=None)  # We don't want a pw guy here.
-
-                                    print('Finished Graft')
-                                    print('updating.....')
-                                    # Update nodes
-                                    curr_update = new_graft_internal
-                                    while curr_update:
-                                        e_score = self.score(curr_update).data.numpy()[0]
-                                        if e_score != curr_update.my_score:
-                                            print(
-                                                'Updated my_score %s of curr my_score %s aproj_local[\'es\'] %s to be %s' % (
-                                                    curr.my_score,
-                                                    curr.as_ment.attributes.aproj_local[
-                                                        'es'] if 'es' in curr.as_ment.attributes.aproj_local else "None",
-                                                    curr.id, e_score))
-                                            curr_update.my_score = e_score
-                                        curr.as_ment.attributes.aproj_local['es'] = e_score
-                                        curr_update = curr_update.parent
-                                    # Set the root of the tree after the graft: TODO: This could be sped up by being in the update loop
-                                    self.root = new_graft_internal.root()
-                                    print('##########################################')
-                                    print("############## KNN ADD %s #############" % new_graft_internal.id)
-                                    print('Adding new node to NSW')
-                                    self.nn_structure.insert(new_graft_internal)
-                                    print('Updating NSW for sibling of node that was grafted')
-                                    self.nn_structure.add_tree_edges(approximate_closest_node_sib)
-                                    print('##########################################')
-                                    # Write the tree after the graft
-                                    if self.config.write_every_tree:
-                                        Graphviz.write_tree(os.path.join(self.config.canopy_out,
-                                                                         'tree_%s_post_banish_%s.gv' % (p_idx, graft_index)),
-                                                            self.root, [approximate_closest_node.id, curr.id], [p_ment.id])
-
-                                else:
-                                    # self.graft_recorder.records.append(GraftMetaData(self, best, curr, False, True, False))
-                                    print('Chose not to banish.')
-
-                        else:
-                            # self.graft_recorder.records.append(GraftMetaData(self, None, curr, False, False, True))
-                            print('No possible banish for %s ' % curr.id)
-                        banish_index += 1
-                    curr = curr.parent
-                    print("=============================================")
-                    print()
-        print()
-        print('Done inserting p (%s,%s,%s) into tree ' % (p_ment.id, p[1], p[2]))
-        print('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
-        print('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
-        print()
-        self.observed_classes.add(p[1])
-        if self.config.write_every_tree:
-            if len(self.config.canopy_out) > 0:
-                Graphviz.write_tree(os.path.join(self.config.canopy_out,
-                                             'tree_%s.gv' % p_idx), self.root,[], [p_ment.id])
-                if self.config.nn_structure == 'nsw':
-                    GraphvizNSW.write_nsw(os.path.join(self.config.canopy_out, 'nsw_%s.gv' % p_idx), self.nn_structure)
-

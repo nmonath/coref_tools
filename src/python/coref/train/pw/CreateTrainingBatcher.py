@@ -15,15 +15,15 @@ limitations under the License.
 
 import sys
 
-from coref.train.hac.MergePreTrainer import MergePreTrainer
 from coref.models import new_model
 from coref.util.Config import Config
+from coref.train import new_trainer
 
 if __name__ == "__main__":
     config = Config(sys.argv[1])
-    trainer = None
-    model = new_model(config,None)
-    trainer = MergePreTrainer(config, None, model)
+    model = new_model(config)
+    trainer = new_trainer(config,model)
+
     def mention_pairs(filename):
         with open(filename, 'r') as fin:
             for idx, line in enumerate(fin):

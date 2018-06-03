@@ -58,6 +58,8 @@ if __name__ == "__main__":
     if args.random_seed != 'config':
         config.random_seed = int(args.random_seed)
 
+    rand = random.Random(config.random_seed)
+
     print('Using random seed %s' %config.random_seed)
     debug = config.debug
 
@@ -87,7 +89,7 @@ if __name__ == "__main__":
             pts.append(pt)
 
         # Shuffle the data points
-        random.shuffle(pts)
+        rand.shuffle(pts)
 
         print('[CLUSTERING...]')
         clustering_time_start = time.time()
@@ -167,16 +169,16 @@ if __name__ == "__main__":
         pre_pred_scala, rec_pred_scala, f1_pred_scala = eval_f1(config, '%s/thresholded.tsv' % canopy_out,
                                                                 '%s/gold.tsv' % canopy_out, restrict_to_gold=True)
 
-        # pre_pred_scala_b3, rec_pred_scala_b3, f1_pred_scala_b3 = eval_bcubed(config,
-        #                                                                      '%s/thresholded.tsv' % canopy_out,
-        #                                                                      '%s/gold.tsv' % canopy_out,
-        #                                                                      restrict_to_gold=True)
+        pre_pred_scala_b3, rec_pred_scala_b3, f1_pred_scala_b3 = eval_bcubed(config,
+                                                                             '%s/thresholded.tsv' % canopy_out,
+                                                                             '%s/gold.tsv' % canopy_out,
+                                                                             restrict_to_gold=True)
 
         with open('%s/thresholded.pw.f1.scala.tsv' % canopy_out, 'w') as f1f:
             f1f.write('%s\t%s\t%s\n' % (pre_pred_scala, rec_pred_scala, f1_pred_scala))
 
-        # with open('%s/thresholded.b3.f1.scala.tsv' % canopy_out, 'w') as f1f:
-        #     f1f.write('%s\t%s\t%s\n' % (pre_pred_scala_b3, rec_pred_scala_b3, f1_pred_scala_b3))
+        with open('%s/thresholded.b3.f1.scala.tsv' % canopy_out, 'w') as f1f:
+            f1f.write('%s\t%s\t%s\n' % (pre_pred_scala_b3, rec_pred_scala_b3, f1_pred_scala_b3))
 
         if len(pts) < 500:
             print('[WRITING GRAPHVIZ TREE]\t%s/tree.gv' % canopy_out)

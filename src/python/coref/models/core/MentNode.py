@@ -44,6 +44,18 @@ class MentNode(F1Node):
         else:
             return "no debug"
 
+    def subtree_memory_usage(self):
+        return 0
+        # bytes = 0
+        # c = self
+        # q = [c]
+        # while q:
+        #     c = q.pop()
+        #     if c.as_ment.attributes is not None:
+        #         bytes += c.as_ment.attributes.memory_usage()
+        #     q.extend(c.children)
+        # return bytes
+
     def split_down(self, other,new_aproj=None,new_my_score=None):
         new_internal = MentNode(self.pts + other.pts,aproj=new_aproj,
                                 point_counter=self.point_counter + other.point_counter)

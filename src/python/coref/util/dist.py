@@ -82,4 +82,3 @@ def _fast_max_to_box(mns, mxs, x):
     A float representing the minimum distance betwen x and the box.
     """
     return _fast_norm(np.maximum(mxs - x, x - mns))
-

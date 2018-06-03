@@ -105,8 +105,8 @@ class EHAC(object):
         """
         self.num_computations += 1
         ap = AttributeProjection()
-        ap.update(n1.as_ment.attributes)
-        ap.update(n2.as_ment.attributes)
+        ap.update(n1.as_ment.attributes,self.model.sub_ent_model)
+        ap.update(n2.as_ment.attributes,self.model.sub_ent_model)
         num_ms = n1.point_counter + n2.point_counter
         if 'tes' in ap.aproj_sum:
             ap.aproj_sum['tea'] = ap['tes'] / num_ms
@@ -122,8 +122,12 @@ class EHAC(object):
 
         if 'es' in n1.as_ment.attributes.aproj_local:
             left_child_entity_score = n1.as_ment.attributes.aproj_local['es']
+            if self.config.expit_e_score:
+                left_child_entity_score = expit(left_child_entity_score)
         if 'es' in n2.as_ment.attributes.aproj_local:
             right_child_entity_score = n2.as_ment.attributes.aproj_local['es']
+            if self.config.expit_e_score:
+                right_child_entity_score = expit(right_child_entity_score)
 
         if left_child_entity_score >= right_child_entity_score:
             ap.aproj_local['child_e_max'] = left_child_entity_score
@@ -132,7 +136,7 @@ class EHAC(object):
             ap.aproj_local['child_e_max'] = right_child_entity_score
             ap.aproj_local['child_e_min'] = left_child_entity_score
 
-        # print('hallucinate_merge')
+        # print('hallucinate_merge(%s,%s)' %(n1.id,n2.id))
         # print('ap.aproj_local')
         # print(ap.aproj_local)
         # print('n1.as_ment.attributes[\'es\']')
@@ -247,6 +251,7 @@ class EHAC(object):
         predicted_score = ap.aproj_local['es']
         # assert predicted_score <= 1.0
         # assert predicted_score >= 0.0
+        print('Merging %s and %s with score %s' % (n1.id,n2.id,predicted_score))
         merged.my_score = predicted_score
         self.roots.append(merged)
         merged.children.append(n1)

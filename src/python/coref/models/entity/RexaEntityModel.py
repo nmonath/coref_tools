@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import fasttext
+import fastText as fasttext
 import torch
 
 from torch.nn import Module

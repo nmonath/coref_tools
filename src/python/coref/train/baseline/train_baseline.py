@@ -14,7 +14,9 @@ limitations under the License.
 """
 
 import argparse
+import errno
 import datetime
+import glob
 import os
 from shutil import copytree
 

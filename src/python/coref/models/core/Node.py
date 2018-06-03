@@ -119,14 +119,13 @@ class Node(object):
     def descendants(self):
         """Return all descendants of the current node."""
         d = []
-        queue = Queue()
-        queue.put(self)
-        while not queue.empty():
-            n = queue.get()
+        queue = [self]
+        while queue:
+            n = queue.pop(0)
             d.append(n)
             if n.children:
                 for c in n.children:
-                    queue.put(c)
+                    queue.append(c)
         return d
 
     def leaves_old(self):
@@ -156,6 +155,20 @@ class Node(object):
                     queue.append(c)
             else:
                 lvs.append(n)
+        return lvs
+
+    def leaves_excluding(self,excluding):
+        lvs = []
+        queue = [self]
+        while queue:
+            n = queue.pop(0)
+            if n.children:
+                for c in n.children:
+                    if c not in excluding:
+                        queue.append(c)
+            else:
+                if n not in excluding:
+                    lvs.append(n)
         return lvs
 
     def lca(self, other):

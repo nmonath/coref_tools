@@ -90,8 +90,12 @@ class GraphvizNSW(object):
             shape = self.emphasis_1_shape
         if node.id in self.emphasis_2_nodes:
             shape = self.emphasis_2_shape
-        leaf_m = '%s|%s' % (node.v.pts[0][0].mid, node.v.pts[0][0].gt) \
-            if node.v.is_leaf() and node.v.pts else ''
+        if hasattr(node.v.pts[0], 'mid'):
+            leaf_m = '%s|%s' % (node.v.pts[0][0].mid, node.v.pts[0][0].gt) \
+                if node.v.is_leaf() and node.v.pts else ''
+        else:
+            leaf_m = '%s|%s' % (node.v.pts[0][2], node.v.pts[0][1]) \
+                if node.v.is_leaf() and node.v.pts else ''
         s.append(
             '\n%s[shape=%s;style=filled;color=%s;label=<%s<BR/>%s<BR/>%s<BR/>%s<BR/>>]'
             % (self.format_id(node.id), shape, color,

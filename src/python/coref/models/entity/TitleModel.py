@@ -29,7 +29,7 @@ class TitleModel(Module):
         super(TitleModel, self).__init__()
         self.config = config
         self.vocab = vocab
-        self.dim = 3
+        self.dim = 1
 
     def norm_diff_min_avg(self, entity):
         """Norm of difference between min and average title emedding."""
@@ -65,7 +65,7 @@ class TitleModel(Module):
         :return: Some kind of vector, you choose
         """
         fv = []
-        fv.append(self.norm_diff_max_avg(entity))
-        fv.append(self.norm_diff_min_avg(entity))
+        # fv.append(self.norm_diff_max_avg(entity))
+        # fv.append(self.norm_diff_min_avg(entity))
         fv.append(self.norm_diff_max_min(entity))
         return fv

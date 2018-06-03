@@ -14,7 +14,8 @@ limitations under the License.
 """
 from coref.models.entity.BaseSubEntModel import BaseSubEntModel
 from coref.models.entity.BasePlusNameSubEnt import BasePlusNameSubEnt
-from coref.models.entity.BasePlusNamePlusTitle import BasePlusNamePlusTitle
+from coref.models.entity.BasePlusTitle import BasePlusTitle
+from coref.models.entity.BaseSubEntAvgModel import BaseSubEntAvgModel
 
 from coref.models.entity.BasePairwiseModel import BasePairwiseModel
 from coref.models.entity.PubMedPairwiseModel import PubMedPairwiseModel
@@ -29,8 +30,10 @@ def new_entity_model(config, vocab=None):
         model = BaseSubEntModel(config, vocab)
     elif config.entity_model_name == 'BasePlusName':
         model = BasePlusNameSubEnt(config, vocab)
-    elif config.entity_model_name == 'BasePlusNamePlusTitle':
-        model = BasePlusNamePlusTitle(config, vocab)
+    elif config.entity_model_name == 'BasePlusTitle':
+        model = BasePlusTitle(config, vocab)
+    elif config.entity_model_name == 'BaseSubEntAvgModel':
+        model = BaseSubEntAvgModel(config, vocab)
     else:
         raise Exception("Unknown Model: {}".format(config.entity_model_name))
     return model

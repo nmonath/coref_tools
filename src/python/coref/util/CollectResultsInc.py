@@ -42,8 +42,8 @@ def short_name_from_config(config):
     if config.clustering_scheme == 'mbehac':
         return "%s_mbsize_%s" % (config.clustering_scheme,config.mbsize)
     else:
-        return "%s_exact_%s_atm_%s_nnk_%s_nswr_%s" % (config.clustering_scheme, config.exact_nn, config.add_to_mention,
-                                                           config.nn_k,config.nsw_r)
+        return "%s_exact_%s_atm_%s_nnk_%s_nswr_%s_ebp_%s" % (config.clustering_scheme, config.exact_nn, config.add_to_mention,
+                                                           config.nn_k,config.nsw_r,config.exact_best_pairwise)
 
 if __name__ == "__main__":
     """

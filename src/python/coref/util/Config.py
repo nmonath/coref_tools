@@ -35,6 +35,7 @@ class Config(object):
         self.pw_num_minibatches = np.inf
         self.batch_size = 100
         self.fraction_of_thresholds_to_try_dev = 1
+        self.iterations = 1
 
         # IO
         self.experiment_out_dir = 'exp_out'
@@ -55,6 +56,7 @@ class Config(object):
         self.threads = 12
         self.debug = False
         self.allow_merge_steal = False
+        self.beam = 0
 
         # Training Procedure
         self.train_tree_size = 20
@@ -62,6 +64,8 @@ class Config(object):
         self.only_use_labeled_train = False
         self.only_use_labeled_dev = False
         self.refine_itrs = 10
+        self.dev_max_canopy_size = 100
+        self.time_debug = True
 
         # Model
         self.activation = 'relu'
@@ -80,16 +84,32 @@ class Config(object):
         self.exact_knn_num = 10
         self.apply_two_name_penalty = True
         self.pass_on_incompatible_names = False
+        self.expit_e_score = False
+        self.use_new_ft = True
 
         self.clustering_scheme = 'ehac'
+        self.exact_best_pairwise = True
+        self.approx_best_pairwise_budget = 100
+
+        self.fast_graft = False
+        self.fast_grafts_only = False
+        self.graft_beam = 5
+
+        self.ordering = None
 
         # PERCH HAC Settings
         self.mention_nn_structure = 'nsw'
         self.nn_structure = 'nsw'
         self.nn_k = 10
         self.nsw_r = 5
+        self.nsw_l = 10
         self.add_to_mention = True
         self.exact_nn = False
+        self.max_num_samples_avl = 25
+        self.max_node_rotate_size = None
+        self.max_node_graft_size = None
+        self.aggressive_rejection_stop = False
+
 
         # Barely still used
         self.inference_method = 'exact'

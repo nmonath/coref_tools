@@ -63,7 +63,13 @@ class Ment(object):
         # self.attributes.aproj['gt'].add(self.gt)
         return self
 
-    def get_title_embs(self, ft, stop_words=None, idfs=None):
+    def get_title_embs(self, ft, stop_words=None, idfs=None,use_new_ft_model_format=False):
+        def word_emb(w):
+            if use_new_ft_model_format:
+                return ft.get_word_vector(w)
+            else:
+                return ft[w]
+
         # tea == title embedding average
         # tes == title embedding sum
         # if 'tea' not in self.attributes and ft is not None:
@@ -73,16 +79,18 @@ class Ment(object):
             if stop_words is not None:
                 words = [word for word in words if word not in stop_words]
             if idfs is not None:
-                title_emb_sum = np.sum([np.array(ft[w]) * 1.0 / idfs[w]
+                title_emb_sum = np.sum([np.array(word_emb(w)) * 1.0 / idfs[w]
                                         for w in words], axis=0)
             else:
-                title_emb_sum = np.sum([np.array(ft[w]) for w in words], axis=0)
+                title_emb_sum = np.sum([np.array(word_emb(w)) for w in words], axis=0)
             if len(words) > 0:
                 title_emb_avg = title_emb_sum / len(self.attributes['t'])
+                title_emb_avg /= np.linalg.norm(title_emb_avg)
             else:
-                title_emb_avg = np.zeros(ft.dim)
-                title_emb_sum = np.zeros(ft.dim)
-            self.attributes.aproj_sum['tes'] = title_emb_sum
+                # TODO(AK): is this value broad cast? Shouldn't it be the emb dim?
+                title_emb_avg = np.zeros(ft.get_dimension())
+                title_emb_sum = np.zeros(ft.get_dimension())
+            self.attributes.aproj_sum['tes'] = title_emb_sum / np.linalg.norm(title_emb_sum) if len(words) > 0 else title_emb_sum
             self.attributes.aproj_sum['tea'] = title_emb_avg
             self.attributes.aproj_bb['tbb'] = (title_emb_avg, title_emb_avg)
 
@@ -115,7 +123,7 @@ class Ment(object):
                 m = Ment(-1, -1).from_json(line)
                 if model is not None:
                     m.get_title_embs(model.ft(), stop_words=stop_words,
-                                     idfs=idfs)
+                                     idfs=idfs,use_new_ft_model_format=model.config.use_new_ft)
                 m.attributes.aproj_sum['count'] = 1.0
                 # subentity features
                 m.attributes.aproj_sum['pw'] = 0.0
@@ -132,3 +140,41 @@ class Ment(object):
                 if m.gt != "None" or not skip_unlabeled:
                     yield ((m, m.gt, m.id))
 
+class MentLoader(object):
+    """The same as the prev Ment.load_ments but it persists the ids and stopwords so we don't need to load them
+    all the time."""
+
+    def __init__(self):
+        self.stop_words = set()
+        with open('resources/stopwords-nltk.txt', 'r') as fin:
+            for line in fin:
+                self.stop_words.add(line.lower().strip())
+
+        self.idfs = defaultdict(lambda: 1.0)
+        with open('resources/idfs.tsv', 'r') as fin:
+            for line in fin:
+                splits = line.split('\t')
+                self.idfs[splits[0]] = float(splits[1])
+
+    def load_ment(self,line, model=None,skip_unlabeled=False):
+        m = Ment(-1, -1).from_json(line)
+        if model is not None:
+            m.get_title_embs(model.ft(), stop_words=self.stop_words,
+                             idfs=self.idfs, use_new_ft_model_format=model.config.use_new_ft)
+        m.attributes.aproj_sum['count'] = 1.0
+        # subentity features
+        m.attributes.aproj_sum['pw'] = 0.0
+        m.attributes.aproj_bb['pw_bb'] = (0.0, 0.0)
+        m.attributes.aproj_local['my_bb'] = 0.0
+
+        # This conflicts with the name of the 'es' score in the aproj_local dictionary.
+        # I don't think that this aproj_sum feature is used anymore.
+        # if so we should rename the feature?
+        # We've also I think changed the e model code to directly access the aproj_local.
+        # m.attributes.aproj_sum['es'] = 0.0
+        m.attributes.aproj_bb['es_bb'] = (0.0, 0.0)
+        m.attributes.aproj_local['my_es'] = 0.0
+        if m.gt != "None" or not skip_unlabeled:
+            return ((m, m.gt, m.id))
+        else:
+            return None

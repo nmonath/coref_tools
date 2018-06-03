@@ -13,12 +13,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from coref.models.entity.BasePlusTitle import BasePlusTitle
-from coref.models.entity.RexaBaseSubEnt import RexaBaseSubEnt
+BORDER_COLOR = 'lightgrey'
+LABEL_COLOR = 'k'
 
-class RexaBasePlusNamePlusTitle(RexaBaseSubEnt):
-    """A pairwise author model (designed for Rexa)"""
 
-    def __init__(self, config, vocab):
-        super(RexaBasePlusNamePlusTitle, self).__init__(config,vocab)
-        self.sub_ent_model = BasePlusTitle(config, vocab)
+def hide_top_right(ax):
+    ax.spines['bottom'].set_color(BORDER_COLOR)
+    ax.spines['left'].set_color(BORDER_COLOR)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.tick_params(axis='x', which='both', bottom='on', top='off',
+                   color=BORDER_COLOR)
+    ax.tick_params(axis='y', which='both', left='on', right='off',
+                   color=BORDER_COLOR)
