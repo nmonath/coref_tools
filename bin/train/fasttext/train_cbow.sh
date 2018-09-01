@@ -19,7 +19,7 @@ sbatch -J ft-${corpus_name} \
             -e logs/train/ft/$corpus_name/${TIME}/${corpus_name}.err \
             -o logs/train/ft/$corpus_name/${TIME}/${corpus_name}.log \
             --cpus-per-task $threads \
-            --partition=defq \
+            --partition=$partition \
             --ntasks=1 \
             --nodes=1 \
             --mem-per-cpu=6000 \
