@@ -14,7 +14,7 @@ export OMP_NUM_THREADS=$threads
 
 mkdir -p logs/train/ft/$corpus_name
 
-sbatch -J pw-tr${i}-${corpus_name} \
+sbatch -J ft-${corpus_name} \
             -e logs/train/ft/$corpus_name/${TIME}/${corpus_name}.err \
             -o logs/train/ft/$corpus_name/${TIME}/${corpus_name}.log \
             --cpus-per-task $threads \
