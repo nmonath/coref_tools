@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -exu
+
 input=$1
 corpus_name=$2
 threads=$3
