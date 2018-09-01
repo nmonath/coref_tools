@@ -23,4 +23,4 @@ sbatch -J ft-${corpus_name} \
             --nodes=1 \
             --mem-per-cpu=6000 \
             --time=0-04:00 \
-            --mail-user $USER@cs.umass.edu --mail-type=$EMAIL fasttext skipgram -input $input -output exp_out/$corpus_name/$TIME -minn 2 -maxn 5 -dim 100 -ws 3
+            --mail-user $USER@cs.umass.edu --mail-type=$EMAIL sh bin/train/fasttext/train_cbow_.sh $input exp_out/$corpus_name/$TIME
