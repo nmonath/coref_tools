@@ -12,7 +12,7 @@ export MKL_NUM_THREADS=$threads
 export OPENBLAS_NUM_THREADS=$threads
 export OMP_NUM_THREADS=$threads
 
-mkdir -p logs/train/ft/$corpus_name
+mkdir -p logs/train/ft/$corpus_name/${TIME}/
 
 sbatch -J ft-${corpus_name} \
             -e logs/train/ft/$corpus_name/${TIME}/${corpus_name}.err \
