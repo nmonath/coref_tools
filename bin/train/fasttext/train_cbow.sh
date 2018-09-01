@@ -6,7 +6,8 @@ input=$1
 corpus_name=$2
 threads=$3
 TIME=`(date +%Y-%m-%d-%H-%M-%S)`
-EMAIL=${4:-None}
+partition=${4:-cpu}
+EMAIL=${5:-None}
 
 export MKL_NUM_THREADS=$threads
 export OPENBLAS_NUM_THREADS=$threads
