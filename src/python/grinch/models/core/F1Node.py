@@ -24,7 +24,7 @@ from grinch.models.core.Node import Node
 class F1Node(Node):
     """A node that can compute it's best F1 partition."""
     def __init__(self):
-        super(F1Node).__init__()
+        super(F1Node,self).__init__()
         self.local_tp = 0
         self.local_fp = 0
         self.best_tp = 0

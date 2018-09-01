@@ -13,11 +13,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import json
+
+from grinch.util.Misc import filter_json
+
 class EntMent(object):
-    def __init__(self,annotation,doc=None):
-        self.mid = str(annotation.id)
-        self.gt = str(annotation.anno.id if annotation.anno.id else self.mid)
-        self.annotation = annotation
+    def __init__(self,mid=None,gt=None,doc=None):
+        self.mid = mid
+        self.gt = gt
         self.name_spelling = None
         self.name_character_n_grams = None
         self.name_character_n_grams_ids = None
@@ -29,9 +32,6 @@ class EntMent(object):
         self.context_ids = None
         self.sentence_token_offsets = None
         self.sentence_tokens = None
-        self.anno = annotation.anno
-        self._ment = None
-        self._attr_proj = None
         self.doc = doc
 
     def cuda(self):
@@ -41,3 +41,16 @@ class EntMent(object):
             self.pretrained_name_emb = self.pretrained_name_emb.cuda()
         if self.context_emb is not None:
             self.context_emb = self.context_emb.cuda()
+
+    @staticmethod
+    def new_from_json(jobj):
+        newEntMent = EntMent()
+        newEntMent.from_json(jobj)
+        return newEntMent
+
+    def from_json(self,jobj):
+        self.__dict__ = jobj
+        # TODO: Handle the name representations
+
+    def to_json(self):
+        return json.dumps(filter_json(self.__dict__),skipkeys=True,sort_keys=True)

@@ -17,6 +17,7 @@ limitations under the License.
 import os
 import errno
 from shutil import copytree
+import gzip
 
 def mkdir_p(filepath):
     try:
@@ -46,3 +47,13 @@ def copy_source_to_dir(output_dir,config):
     except OSError as e:
         if e.errno != errno.EEXIST:
             print('%s already exists' % output_dir)
+
+def lines(filename):
+    if filename.endswith('.gz'):
+        with gzip.open(filename,'rt') as fin:
+            for line in fin:
+                yield line
+    else:
+        with open(filename,'r') as fin:
+            for line in fin:
+                yield line

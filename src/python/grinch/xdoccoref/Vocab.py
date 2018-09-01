@@ -17,7 +17,7 @@ import json
 from grinch.util.Misc import filter_json
 
 class Vocab(object):
-    def __init__(self,filename=None,self_dict=None,max_len=20,pad=False,OOV=False):
+    def __init__(self,filename=None,self_dict=None,max_len=20,pad=False,OOV=True):
         self.size = 0
         self.w2id = dict()
         self.id2w = dict()
@@ -42,6 +42,12 @@ class Vocab(object):
     def __len__(self):
         return self.size
 
+    def __getitem__(self, item):
+        if item in self.w2id:
+            return self.w2id[item]
+        else:
+            return self.OOV_INDEX
+
 class TypedVocab(object):
 
     def __init__(self,filename=None):
@@ -61,4 +67,4 @@ class TypedVocab(object):
         state = dict()
         for t in self.__dict__.keys():
             state[t] = filter_json(self.__dict__[t].__dict__)
-        return filter_json(state)
+        return json.dumps(filter_json(state),sort_keys=True)
