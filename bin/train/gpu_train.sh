@@ -7,9 +7,9 @@ threads=1
 partition=${2:-titanx-short}
 EMAIL=${3:-None}
 
-dataset_name=`cat $CONFIG | jq -r .dataset_name`
-model_name=`cat $CONFIG | jq -r .model_name`
-alg_name=`cat $CONFIG | jq -r .alg_name`
+dataset_name=`cat $input | jq -r .dataset_name`
+model_name=`cat $input | jq -r .model_name`
+alg_name=`cat $input | jq -r .alg_name`
 
 TIME=`(date +%Y-%m-%d-%H-%M-%S)`
 
