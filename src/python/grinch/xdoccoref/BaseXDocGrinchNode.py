@@ -20,6 +20,7 @@ class BaseXDocGrinchNode(GNSWNode):
     def __init__(self, ent, e_score_fn, e_score_fn_vec, max_degree=None):
         super(BaseXDocGrinchNode, self).__init__(ent, e_score_fn, max_degree)
         self.e_score_fn_vec = e_score_fn_vec
+        self.point_counter = 1
 
     def score_group(self, query, others, offlimits):
         batch_size = 100

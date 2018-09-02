@@ -174,7 +174,7 @@ class F1Node(Node):
                 continue
             elif l.parent and l.parent in non_entities:
                 pred_partition.append(l)
-            elif l.parent and l.parent.my_score >= t:
+            elif l.parent and l.parent.score() >= t:
                 if (l.parent.curr_height, l.parent) not in frontier:
                     heappush(frontier, (l.parent.curr_height, l.parent))
             elif l.parent:

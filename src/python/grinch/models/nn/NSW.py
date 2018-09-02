@@ -25,7 +25,7 @@ from grinch.models.nn.NSWNode import NSWNode
 
 class NSW(object):
     """Builds a navigable small world nearest neighbor structure."""
-    def __init__(self,  exact_nn, k, r, seed=1451):
+    def __init__(self,  exact_nn, k, r, seed=1451,use_canopies=False):
         """Build the NSW graph.
 
         Args:
@@ -45,7 +45,8 @@ class NSW(object):
         self.approx_max_degree = 0
         self.random = random.Random(seed)
         self.logger = logging.getLogger('NSW')
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(logging.INFO)
+        self.use_canopies = use_canopies
 
     def num_edges(self):
         return self.num_neighbor_edges + len(self.nodes)-1

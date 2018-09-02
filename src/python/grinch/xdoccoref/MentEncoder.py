@@ -109,7 +109,7 @@ class MentEncoder(torch.nn.Module):
         else:
             ent.typed_mat[self.type_key] = None
             ent.typed_mat_assign[self.type_key] = None
-        ent.mat = [ment.ment().attributes]
+        ent.mat = [ment]
 
     def score_singletons(self,bm1_vecs,bm2_vecs):
         """ Given singleton entity representations provide a score

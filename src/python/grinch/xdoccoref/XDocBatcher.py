@@ -19,17 +19,20 @@ class XDocBatcher(object):
         self.random.shuffle(self.pairs)
 
     def get_next_batch(self):
-        if self.offset >= len(self.pairs):
-            if not self.return_one_epoch:
+        while True:
+            if self.offset >= len(self.pairs) and not self.return_one_epoch:
                 self.shuffle()
-        else:
-            start = self.offset
-            end = min(len(self.pairs),start + self.config.batch_size)
-            batch = self.pairs[start:end]
-            lefts = [self.id_2_mention[x[0]] for x in batch]
-            rights = [self.id_2_mention[x[1]] for x in batch]
-            if self.config.produce_sample_pairs:
-                third = [int(x[2]) for x in batch]
+                self.offset = 0
+            elif self.offset >= len(self.pairs) and self.return_one_epoch:
+                return
             else:
-                third = [self.id_2_mention[x[2]] for x in batch]
-            yield lefts,rights,third
+                start = self.offset
+                end = min(len(self.pairs),start + self.config.batch_size)
+                batch = self.pairs[start:end]
+                lefts = [self.id_2_mention[x[0]] for x in batch]
+                rights = [self.id_2_mention[x[1]] for x in batch]
+                if self.config.produce_sample_pairs:
+                    third = [int(x[2]) for x in batch]
+                else:
+                    third = [self.id_2_mention[x[2]] for x in batch]
+                yield lefts,rights,third

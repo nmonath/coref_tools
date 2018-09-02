@@ -157,6 +157,12 @@ class Config(object):
         self.typed_dims = {'name': 100, 'context': 100, 'name_ft': 100}
         self.cnn_dims = {'name': 100, 'context': 100, 'name-ft': 100}
         self.eval_first = False
+        self.single_elimination = False
+        self.use_single_search = True
+        self.use_canopies = True
+        self.max_num_leaves = 10000000
+        self.typed_k_rep = {'name': 5, 'context': 5, 'name-ft': 5}
+        self.max_degree = 200
 
         if filename:
             self.__dict__.update(json.load(open(filename)))

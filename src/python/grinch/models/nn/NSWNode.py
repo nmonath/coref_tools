@@ -32,7 +32,7 @@ class NSWNode(object):
         self.max_degree = max_degree
         self.e_score_fn = e_score_fn
         self.logger = logging.getLogger("NSWNode")
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(logging.INFO)
 
     def neighbors(self):
         return self._neighbors
