@@ -14,8 +14,6 @@ limitations under the License.
 """
 
 from coref.models.hac.EHAC import EHAC
-from coref.models.hac.EPerch import EPerch
-from coref.models.hac.EPerch import EPerchGreedy
 from coref.models.hac.Gerch import Gerch, Perch, Greedy
 from coref.models.hac.MBEHAC import MBEHAC
 

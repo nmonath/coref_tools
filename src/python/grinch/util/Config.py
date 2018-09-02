@@ -152,6 +152,12 @@ class Config(object):
         self.dev_num_sf_samples = 4
         self.vocab_file = None
 
+        self.use_mlp_scoring_layer = False
+        self.use_pairwise = {'name': False, 'context': False, 'name_ft': False}
+        self.typed_dims = {'name': 100, 'context': 100, 'name_ft': 100}
+        self.cnn_dims = {'name': 100, 'context': 100, 'name-ft': 100}
+        self.eval_first = False
+
         if filename:
             self.__dict__.update(json.load(open(filename)))
         self.random = random.Random(self.random_seed)

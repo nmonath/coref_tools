@@ -34,12 +34,13 @@ import numpy as np
 import grinch
 
 import logging
-from coref.train.hac import MergePreTrainer
+from coref.train.hac.MergePreTrainer import MergePreTrainer
 from grinch.xdoccoref.Load import load_mentions_from_file
+from grinch.util.IO import lines
 
 class TrainHac(MergePreTrainer):
     def __init__(self, config, vocab, model):
-        super(TrainHac,self).__init__(config,vocab,model)
+        # super(TrainHac, self).__init__(config,vocab,model)
         self.model = model
         self.trainer = 'MergePreTrainer'
         self.config = config
@@ -513,13 +514,12 @@ if __name__ == '__main__':
     trainer = TrainHac(config, vocab, model)
     if config.train_pair_file is not None and config.train_pair_file != "":
         pairs = []
-        with open(config.train_pair_file) as fin:
-            for line in fin:
-                splt = line.strip().split("\t")
-                if config.produce_sample_pairs:
-                    pairs.append((splt[0], splt[1], int(splt[2])))
-                else:
-                    pairs.append((splt[0], splt[1], splt[2]))
+        for line in lines(config.train_pair_file):
+            splt = line.strip().split("\t")
+            if config.produce_sample_pairs:
+                pairs.append((splt[0], splt[1], int(splt[2])))
+            else:
+                pairs.append((splt[0], splt[1], splt[2]))
     from grinch.xdoccoref.XDocBatcher import XDocBatcher
     batcher = XDocBatcher(config,mentions,pairs,return_one_epoch=False)
 

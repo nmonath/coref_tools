@@ -26,10 +26,10 @@ class XDocBatcher(object):
             start = self.offset
             end = min(len(self.pairs),start + self.config.batch_size)
             batch = self.pairs[start:end]
-            lefts = [x[0] for x in batch]
-            rights = [x[1] for x in batch]
+            lefts = [self.id_2_mention[x[0]] for x in batch]
+            rights = [self.id_2_mention[x[1]] for x in batch]
             if self.config.produce_sample_pairs:
                 third = [int(x[2]) for x in batch]
             else:
-                third = [x for x in batch]
-            return lefts,rights,third
+                third = [self.id_2_mention[x[2]] for x in batch]
+            yield lefts,rights,third

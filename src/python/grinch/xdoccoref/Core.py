@@ -59,6 +59,6 @@ class EntMent(object):
         if item == 0:
             return self
         elif item == 1:
-            return self.mid
-        elif item == 2:
             return self.gt
+        elif item == 2:
+            return self.mid

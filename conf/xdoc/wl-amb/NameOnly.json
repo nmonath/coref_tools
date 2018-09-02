@@ -23,7 +23,7 @@
     "nsw_l": 10,
     "nsw_r": 3,
     "optimizer": "Adam",
-    "train_pair_file": "exp_out/wl-amb/PretrainedNameOnly/XDocNSWHAC/2018-09-02-06-58-42/pairs.tsv.gz",
+    "train_pair_file": "exp_out/wl-amb/PretrainedNameOnly/XDocNSWHAC/2018-09-02-08-52-03/pairs.tsv.gz",
     "partition_threshold": null,
     "pw_arch": "lin",
     "pw_lr": 0.001,
