@@ -35,6 +35,7 @@ import grinch
 
 import logging
 from coref.train.hac import MergePreTrainer
+from grinch.xdoccoref.Load import load_mentions_from_file
 
 class TrainHac(MergePreTrainer):
     def __init__(self, config, vocab, model):
@@ -519,7 +520,8 @@ if __name__ == '__main__':
                     pairs.append((splt[0], splt[1], int(splt[2])))
                 else:
                     pairs.append((splt[0], splt[1], splt[2]))
-    batcher = batcher(config,mentions,pairs,return_one_epoch=False)
+    from grinch.xdoccoref.XDocBatcher import XDocBatcher
+    batcher = XDocBatcher(config,mentions,pairs,return_one_epoch=False)
 
     # Load dev data
     dev_mention_file = config.dev_files[0]

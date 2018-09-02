@@ -143,7 +143,14 @@ class Config(object):
         self.l2s_randomize = False
         self.l2s_freeze_pw = True
 
-
+        self.train_pair_file = None
+        self.num_pos_samples_per_pt = 30
+        self.num_rand_neg_samples_per_pt = 0
+        self.num_max_num_positives_per_cluster = 100
+        self.num_hard_neg_samples_per_pt = 2
+        self.produce_sample_pairs = True
+        self.dev_num_sf_samples = 4
+        self.vocab_file = None
 
         if filename:
             self.__dict__.update(json.load(open(filename)))

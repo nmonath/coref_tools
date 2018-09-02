@@ -54,3 +54,11 @@ class EntMent(object):
 
     def to_json(self):
         return json.dumps(filter_json(self.__dict__),skipkeys=True,sort_keys=True)
+
+    def __getitem__(self, item):
+        if item == 0:
+            return self
+        elif item == 1:
+            return self.mid
+        elif item == 2:
+            return self.gt
