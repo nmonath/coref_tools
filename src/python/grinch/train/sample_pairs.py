@@ -134,7 +134,7 @@ if __name__ == "__main__":
     # Load data from this file
     mention_file = config.train_files[0]
     from grinch.xdoccoref.Load import load_mentions_from_file
-    from grinch.inf.xdoc_coref import build_elmo,build_ft
+    from grinch.xdoccoref.PretrainedModels import build_elmo,build_ft
     ft = build_ft()
     elmo = build_elmo()
     mentions = [m for m in load_mentions_from_file(mention_file,ft,elmo,use_cuda=config.use_cuda)]

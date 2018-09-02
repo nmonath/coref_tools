@@ -14,12 +14,14 @@ limitations under the License.
 """
 
 from sklearn.feature_extraction.hashing import _hashing
+import fastText
 
 def build_elmo():
     pass
 
 def build_ft():
-    pass
+    ft = fastText.load_model('exp_out/wiki-links/2018-09-01-11-14-42/embeddings.bin')
+    return ft
 
 def build_canopy_hasher():
     from sklearn.feature_extraction.hashing import FeatureHasher
