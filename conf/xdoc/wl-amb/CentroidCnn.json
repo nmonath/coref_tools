@@ -17,7 +17,7 @@
     "l2penalty": 0.0,
     "mbsize": 1000,
     "mention_nn_structure": "nsw",
-    "model_name": "BaseCNNScoringModel",
+    "model_name": "BaseCNNModel",
     "nn_k": 25,
     "nn_structure": "nsw",
     "nsw_l": 10,
