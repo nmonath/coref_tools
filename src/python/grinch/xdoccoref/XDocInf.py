@@ -62,7 +62,7 @@ class XDocNSWHAC(NSWEHAC):
         from grinch.xdoccoref.PretrainedModels import hash_canopies
         ent = XDocEnt(self.sim_model.types,self.typed_dims,self.sim_model,init_pt=pt,use_pairwise=self.config.use_pairwise,
                                         use_cuda=self.config.use_cuda,k=self.config.typed_k_rep,
-                      canopies=set(hash_canopies([x for x in pt.name_character_n_grams if len(x) >=4 and (x.startswith("<") or x.startswith(" ") or x.endswith(">") or x.endswith(" "))])))
+                      canopies=set(hash_canopies([pt.name_spelling] + [x for x in pt.name_character_n_grams if len(x) >=4 and (x.startswith("<") or x.startswith(" ") or x.endswith(">") or x.endswith(" "))])))
         n = BaseXDocGrinchNode(ent,
                                lambda x,y: self.e_score(x.ent,y.ent), lambda x,y: self.e_score_vec(x.ent,y),
                                self.config.max_degree)
