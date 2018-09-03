@@ -63,7 +63,7 @@ class NSWNode(object):
                 if other.max_degree is not None and other.num_neighbors() == other.max_degree:
                     other.accepting_neighbors = False
 
-    def score_neighbors(self,query,offlimits):
+    def score_neighbors(self,query,offlimits,path):
         """ Compute the score between the query and all of the neighbors of this node
         
         :param query: 
@@ -71,12 +71,12 @@ class NSWNode(object):
         :return: generator of (score,node)
         """
         logging.debug('[cknn] #inScoreNeighbors')
-        for score,n in self.score_group(query,self.neighbors(),offlimits):
+        for score,n in self.score_group(query,self.neighbors(),offlimits,path):
             yield score,n
 
-    def score_group(self, query, others, offlimits):
+    def score_group(self, query, others, offlimits,path):
         for n in self.neighbors():
-            if n not in offlimits:
+            if n not in offlimits and n not in path:
                 yield self.e_score_fn(n,query),n
 
     def cknn(self, query, k=1, offlimits=None, sim_cache=None, path=set()):
@@ -100,7 +100,7 @@ class NSWNode(object):
                 self.logger.debug('[cknn] Returning None because curr=%s was on path' % curr.id)
                 return None, None
             local_path.add(curr)
-            scored_neighbors = curr.score_neighbors(query,offlimits)
+            scored_neighbors = curr.score_neighbors(query,offlimits,path)
             for score,c in scored_neighbors:
                 # self.logger.debug('[cknn] #ScoreNeighbors\tscore=%s\tc=%s' % (score, c.id))
                 if best[0] is None or best[0] < score or (best[0] == score and best[1] < c):
