@@ -13,7 +13,7 @@ alg_name=`cat $input | jq -r .clustering_scheme`
 
 TIME=`(date +%Y-%m-%d-%H-%M-%S)`
 
-log_dir=logs/train/$dataset_name/$model_name/$alg_name/$TIME
+log_dir=logs/test/$dataset_name/$model_name/$alg_name/$TIME
 
 export MKL_NUM_THREADS=$threads
 export OPENBLAS_NUM_THREADS=$threads
@@ -22,8 +22,8 @@ export OMP_NUM_THREADS=$threads
 mkdir -p $log_dir/
 
 sbatch -J sample_pairs \
-            -e $log_dir/train.err \
-            -o $log_dir/train.log \
+            -e $log_dir/test.err \
+            -o $log_dir/test.log \
             --cpus-per-task $threads \
             --partition=$partition \
             --gres=gpu:1 \
@@ -31,4 +31,4 @@ sbatch -J sample_pairs \
             --nodes=1 \
             --mem-per-cpu=12000 \
             --time=0-04:00 \
-            --mail-user $USER@cs.umass.edu --mail-type=$EMAIL bin/train/train.sh $input
+            --mail-user $USER@cs.umass.edu --mail-type=$EMAIL bin/inf/xdoc/coref.sh $input
