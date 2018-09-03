@@ -77,7 +77,7 @@ class NSW(object):
         allowable = nodes.difference(offlimits)
 
         if self.use_canopies:
-            offlimits = offlimits.union(self.nodes.difference(allowable))
+            offlimits = set(offlimits).union(self.nodes.difference(allowable))
 
         if len(allowable) == 0 \
                 or k * self.r * np.log(len(allowable)) > len(allowable) or self.exact_nn:
