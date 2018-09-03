@@ -165,6 +165,11 @@ class Config(object):
         self.typed_k_rep = {'name': 5, 'context': 5, 'name-ft': 5}
         self.max_degree = 200
         self.dropout = 0.3
+        self.update_name = True
+        self.update_context = True
+        self.warm_start_context = True
+        self.warm_start_name = False
+
 
         if filename:
             self.__dict__.update(json.load(open(filename)))
