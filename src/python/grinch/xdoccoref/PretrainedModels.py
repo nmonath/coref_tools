@@ -20,7 +20,8 @@ def build_elmo():
     pass
 
 def build_ft():
-    ft = fastText.load_model('exp_out/wiki-links/2018-09-01-11-14-42/embeddings.bin')
+    # ft = fastText.load_model('exp_out/wiki-links/2018-09-01-11-14-42/embeddings.bin')
+    ft = fastText.load_model('exp_out/wiki-links/2018-09-01-10-49-52/embeddings.bin')
     return ft
 
 def build_canopy_hasher():
