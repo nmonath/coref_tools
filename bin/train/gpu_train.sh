@@ -21,7 +21,7 @@ export OMP_NUM_THREADS=$threads
 
 mkdir -p $log_dir/
 
-sbatch -J sample_pairs \
+sbatch -J train-$dataset_name-$model_name-$alg_name-$TIME \
             -e $log_dir/train.err \
             -o $log_dir/train.log \
             --cpus-per-task $threads \
