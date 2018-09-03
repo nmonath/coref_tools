@@ -156,6 +156,7 @@ class Config(object):
         self.use_pairwise = {'name': False, 'context': False, 'name_ft': False}
         self.typed_dims = {'name': 100, 'context': 100, 'name_ft': 100}
         self.cnn_dims = {'name': 100, 'context': 100, 'name-ft': 100}
+        self.cnn_pos_dims = {'name':10,'context':10}
         self.eval_first = False
         self.single_elimination = False
         self.use_single_search = True
