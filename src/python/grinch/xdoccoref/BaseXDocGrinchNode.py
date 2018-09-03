@@ -25,7 +25,7 @@ class BaseXDocGrinchNode(GNSWNode):
     def score_group(self, query, others, offlimits, path):
         batch_size = 100
         query_canopies = query.canopies()
-        ok_neighbors = [n for n in others if n not in offlimits and n not in path and query_canopies.isdisjoing(n.canopies())]
+        ok_neighbors = [n for n in others if n not in offlimits and n not in path and query_canopies.isdisjoint(n.canopies())]
         for b in range(0,len(ok_neighbors),batch_size):
             start=b
             end=min(b+batch_size,len(ok_neighbors))
