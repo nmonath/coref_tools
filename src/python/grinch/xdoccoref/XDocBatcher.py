@@ -35,4 +35,5 @@ class XDocBatcher(object):
                     third = [int(x[2]) for x in batch]
                 else:
                     third = [self.id_2_mention[x[2]] for x in batch]
+                self.offset += end
                 yield lefts,rights,third

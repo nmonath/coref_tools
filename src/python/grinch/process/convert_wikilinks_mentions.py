@@ -28,6 +28,8 @@ class TSVMention(object):
         mention_start = len(self.left_context.split(" "))
         mention_end = mention_start + len(self.middle_context.split(" "))
         entMent.sentence_token_offsets = [x for x in range(mention_start,mention_end)]
+        entMent.sentence_char_offset = len(self.left_context) + (1 if len(self.left_context) > 0 else 0)
+        entMent.sentence_char_len = len(self.middle_context)
         return entMent
 
 

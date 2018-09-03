@@ -30,6 +30,8 @@ class EntMent(object):
         self.context_emb = None
         self.context_string = None
         self.context_ids = None
+        self.sentence_char_offset = None
+        self.sentence_char_len = None
         self.sentence_token_offsets = None
         self.sentence_tokens = None
         self.doc = doc

@@ -7,7 +7,7 @@ from grinch.xdoccoref.Vocab import TypedVocab,Vocab
 def update_counts(entMent,typed_counts):
     for name_char in entMent.name_spelling:
         typed_counts['name'][name_char] += 1
-    for context_word in entMent.context_string.split(" "):
+    for context_word in entMent.sentence_tokens:
         typed_counts['context'][context_word] += 1
 
 
