@@ -47,5 +47,6 @@
     "produce_sample_pairs":true,
     "use_pairwise": {"name": false, "context": false, "name_ft": false},
     "typed_dims": {"name": 100, "context": 100, "name_ft": 100},
-    "cnn_dims": {"name": 100, "context": 100, "name-ft": 100}
+    "cnn_dims": {"name": 100, "context": 100, "name-ft": 100},
+    "vocab_file":"data/wl-amb/train/train-mentions.top25.json.gz.2018-08-31-22-41-58.vocab"
 }
