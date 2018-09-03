@@ -164,6 +164,7 @@ class Config(object):
         self.max_num_leaves = 10000000
         self.typed_k_rep = {'name': 5, 'context': 5, 'name-ft': 5}
         self.max_degree = 200
+        self.dropout = 0.3
 
         if filename:
             self.__dict__.update(json.load(open(filename)))
