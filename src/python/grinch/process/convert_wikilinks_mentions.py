@@ -24,6 +24,10 @@ class TSVMention(object):
         entMent = EntMent(self.mid,self.gt)
         entMent.name_spelling = self.mention_spelling
         entMent.context_string = self.context
+        # compute the token offsets:
+        mention_start = len(self.left_context.split(" "))
+        mention_end = mention_start + len(self.middle_context.split(" "))
+        entMent.sentence_token_offsets = [x for x in range(mention_start,mention_end)]
         return entMent
 
 
