@@ -35,7 +35,7 @@
     "train_tree_size": 400,
     "trainer_name": "MergePreTrainer",
     "update_f": null,
-    "use_cuda": true,
+    "use_cuda": false,
     "warm_start": false,
     "write_every_tree": true,
     "warm_start_name": true,

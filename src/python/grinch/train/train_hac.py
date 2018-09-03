@@ -520,6 +520,7 @@ if __name__ == '__main__':
                 pairs.append((splt[0], splt[1], int(splt[2])))
             else:
                 pairs.append((splt[0], splt[1], splt[2]))
+        print('Loaded %s pairs' % len(pairs))
     from grinch.xdoccoref.XDocBatcher import XDocBatcher
     batcher = XDocBatcher(config,mentions,pairs,return_one_epoch=False)
 

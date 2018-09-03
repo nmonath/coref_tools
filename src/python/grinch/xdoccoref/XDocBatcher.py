@@ -16,6 +16,7 @@ class XDocBatcher(object):
         self.shuffle()
 
     def shuffle(self):
+        print('SHUFFLING DATA IN BATCHER!')
         self.random.shuffle(self.pairs)
 
     def get_next_batch(self):
@@ -35,5 +36,5 @@ class XDocBatcher(object):
                     third = [int(x[2]) for x in batch]
                 else:
                     third = [self.id_2_mention[x[2]] for x in batch]
-                self.offset += end
+                self.offset = end
                 yield lefts,rights,third
