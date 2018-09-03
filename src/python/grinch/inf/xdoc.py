@@ -74,7 +74,7 @@ if __name__ == "__main__":
 
     from grinch.xdoccoref.Load import load_mentions_from_file
 
-    data = [x for x in load_mentions_from_file(config.test_files[0])][:500]
+    data = [x for x in load_mentions_from_file(config.test_files[0])]
     random.shuffle(data)
 
     from grinch.xdoccoref import new_grinch
