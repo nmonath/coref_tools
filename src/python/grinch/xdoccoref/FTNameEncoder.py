@@ -50,7 +50,11 @@ class FTName(MentEncoder):
 
     def get_embedding_for_name(self,name):
         if name not in self.cached_vectors:
-            emb = torch.from_numpy(self.ft().get_word_vector(name).astype(np.float32))
+            numpy_vec = self.ft().get_word_vector(name).astype(np.float32)
+            Z = np.linalg.norm(numpy_vec)
+            if Z > 0:
+                numpy_vec /= Z
+            emb = torch.from_numpy(numpy_vec)
             self.cached_vectors[name]= emb
             return emb
         else:
@@ -72,9 +76,9 @@ class FTName(MentEncoder):
         if self.config.use_cuda:
             embs = embs.cuda()
 
-        mean_norm = torch.norm(embs, dim=1).unsqueeze(1)
-        normed = torch.div(embs, mean_norm)
-        return normed
+        # mean_norm = torch.norm(embs, dim=1).unsqueeze(1)
+        # normed = torch.div(embs, mean_norm)
+        return embs
 
     def score_singletons(self,bm1_vecs,bm2_vecs):
         score = torch.sum(torch.mul(bm1_vecs, bm2_vecs), dim=1)
