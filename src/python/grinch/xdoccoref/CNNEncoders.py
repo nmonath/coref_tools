@@ -24,7 +24,7 @@ class CNNEncoder(MentEncoder):
     def __init__(self, config, vocab, type_key, token_dim, pos_dim,output_dim=1):
         super(CNNEncoder,self).__init__(config,vocab,type_key,use_pairwise=config.use_pairwise[type_key],output_dim=output_dim)
         self.dropout = nn.Dropout(config.dropout)
-        self.token_emb = nn.Embedding(vocab.size + 1, token_dim, padding_idx=0)
+        self.token_emb = nn.Embedding(vocab.size + 1 +4, token_dim, padding_idx=0) # 4 for the padding....
         self.pos_emb = nn.Embedding(vocab.max_len * 2 + 5, pos_dim, padding_idx=0)
         self.pos2idx = dict()
         self.pos_mention = 1
