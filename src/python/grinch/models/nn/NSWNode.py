@@ -20,6 +20,7 @@ import logging
 import string
 from grinch.models.core.F1Node import F1Node
 from heapq import heappush,heappushpop,heappop
+from collections import defaultdict
 
 class NSWNode(object):
 
@@ -70,6 +71,10 @@ class NSWNode(object):
         :return: generator of (score,node)
         """
         logging.debug('[cknn] #inScoreNeighbors')
+        for score,n in self.score_group(query,self.neighbors(),offlimits):
+            yield score,n
+
+    def score_group(self, query, others, offlimits):
         for n in self.neighbors():
             if n not in offlimits:
                 yield self.e_score_fn(n,query),n

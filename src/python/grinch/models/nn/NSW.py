@@ -21,7 +21,7 @@ import logging
 from heapq import heapify, heappush, heappop, heappushpop
 
 from grinch.models.nn.NSWNode import NSWNode
-
+from collections import defaultdict
 
 class NSW(object):
     """Builds a navigable small world nearest neighbor structure."""
@@ -47,6 +47,8 @@ class NSW(object):
         self.logger = logging.getLogger('NSW')
         self.logger.setLevel(logging.INFO)
         self.use_canopies = use_canopies
+        self.canopy_map = defaultdict(list)
+
 
     def num_edges(self):
         return self.num_neighbor_edges + len(self.nodes)-1
@@ -67,7 +69,12 @@ class NSW(object):
         Returns:
             A min heap of (score, node).
         """
-        allowable = self.nodes.difference(offlimits)
+        if self.use_canopies:
+            nodes = set([node for c in v.canopies() for node in self.canopy_map[c]])
+        else:
+            nodes = self.nodes
+
+        allowable = nodes.difference(offlimits)
 
         if len(allowable) == 0 \
                 or k * self.r * np.log(len(allowable)) > len(allowable) or self.exact_nn:
@@ -138,14 +145,21 @@ class NSW(object):
             scores_and_nodes, num_score_fn = self._knn(v, offlimits, k)
             best = (None, None)
             self.nodes.add(v)
+            if self.use_canopies:
+                for canopy in v.canopies():
+                    self.canopy_map[canopy].append(v)
             for score, node in scores_and_nodes:
                 v.add_link(node)
                 if best[0] is None or score > best[0] or (score == best[0] and best[1] < node):
                     best = (score, node)
-            sorted_nodes = sorted(scores_and_nodes, key=lambda x: (x[0], x[1]), reverse=True)
-            self.logger.debug('[cknn_and_insert]\tbest\tbest_score=%s\tbest_node=%s\tv=%s\tlen(offlimits)=%s\tk=%s' % (best[0],best[1].id, v.id, len(offlimits), k))
-            assert best == sorted_nodes[0]
-            return sorted_nodes
+            if best[0] is None:
+                self.logger.info('[cknn_and_insert]\tno edges added\tv.id=%s\tlen(v.canopies())=%s' % (v.id,len(v.canopies())))
+                return []
+            else:
+                sorted_nodes = sorted(scores_and_nodes, key=lambda x: (x[0], x[1]), reverse=True)
+                self.logger.debug('[cknn_and_insert]\tbest\tbest_score=%s\tbest_node=%s\tv=%s\tlen(offlimits)=%s\tk=%s' % (best[0],best[1].id, v.id, len(offlimits), k))
+                assert best == sorted_nodes[0]
+                return sorted_nodes
 
     def exact_knn(self, v, offlimits,  k=1):
         """Returns the exact knn of v.
@@ -158,14 +172,18 @@ class NSW(object):
         Returns:
             A minheap of no more than k (score,node).
         """
+        if self.use_canopies:
+            nodes = [node for c in v.canopies() for node in self.canopy_map[c]]
+        else:
+            nodes = self.nodes
         knn = []
         num_score_fn = 0
-        for n in self.nodes:
+        for n in nodes:
             if n not in offlimits:
                 num_score_fn += 1
                 if len(knn) == k:
                     heappushpop(knn, (n.e_score_fn(v, n), n))
                 else:
                     heappush(knn, (n.e_score_fn(v, n), n))
-        return sorted(knn, key=lambda x: (x[0],x[1]),reverse=True), num_score_fn
+        return sorted(knn, key=lambda x: (x[0], x[1]), reverse=True), num_score_fn
 
