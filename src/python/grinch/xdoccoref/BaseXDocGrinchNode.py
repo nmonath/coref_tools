@@ -25,22 +25,13 @@ class BaseXDocGrinchNode(GNSWNode):
     def score_group(self, query, others, offlimits, path):
         batch_size = 100
         query_canopies = query.canopies()
-        ok_neighbors = [n for n in others if n not in offlimits and n not in path and self.has_overlap(query_canopies,n.canopies())]
+        ok_neighbors = [n for n in others if n not in offlimits and n not in path and query_canopies.isdisjoing(n.canopies())]
         for b in range(0,len(ok_neighbors),batch_size):
             start=b
             end=min(b+batch_size,len(ok_neighbors))
             scores = self.e_score_fn_vec(query,ok_neighbors[b:b+batch_size])
             for b_i,n_i in enumerate(range(start,end)):
                 yield scores[b_i],ok_neighbors[n_i]
-
-    def has_overlap(self,canopies,other_canopies):
-        if len(other_canopies) > len(canopies):
-            return self.has_overlap(other_canopies,canopies)
-        else:
-            for c in other_canopies:
-                if c in canopies:
-                    return True
-            return False
 
     def canopies(self):
         if self.ent.needs_update:
