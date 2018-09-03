@@ -169,6 +169,7 @@ class Config(object):
         self.update_context = True
         self.warm_start_context = True
         self.warm_start_name = False
+        self.warm_start_context_glove = False
 
 
         if filename:
