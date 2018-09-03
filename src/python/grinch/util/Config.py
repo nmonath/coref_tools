@@ -170,6 +170,7 @@ class Config(object):
         self.warm_start_context = True
         self.warm_start_name = False
         self.warm_start_context_glove = False
+        self.use_cosine_sim = True
 
 
         if filename:

@@ -36,6 +36,7 @@
     "trainer_name": "MergePreTrainer",
     "update_f": null,
     "use_cuda": true,
+    "use_cosine_sim": true,
     "warm_start": false,
     "write_every_tree": true,
     "warm_start_name": false,
