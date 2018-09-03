@@ -42,7 +42,7 @@
     "warm_start_name": false,
     "warm_start_context": true,
     "update_name":true,
-    "update_context":true,
+    "update_context":false,
     "warm_start_context_glove":false,
     "num_pos_samples_per_pt":30,
     "num_rand_neg_samples_per_pt":0,
