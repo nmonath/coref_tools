@@ -50,15 +50,16 @@ class FTName(MentEncoder):
 
     def get_embedding_for_name(self,name):
         if name not in self.cached_vectors:
-            numpy_vec = self.ft().get_word_vector(name).astype(np.float32)
-            Z = np.linalg.norm(numpy_vec)
-            if Z > 0:
-                numpy_vec /= Z
-            emb = torch.from_numpy(numpy_vec)
+            emb = self.ft().get_word_vector(name).astype(np.float32)
+            # Z = np.linalg.norm(numpy_vec)
+            # if Z > 0:
+            #     numpy_vec /= Z
+            # emb = torch.from_numpy(numpy_vec)
             self.cached_vectors[name]= emb
             return emb
         else:
             return self.cached_vectors[name]
+
 
     def feat_ments(self, batch):
         """
@@ -68,17 +69,22 @@ class FTName(MentEncoder):
         batch_size = len(batch)
         # get ids returns the ngram strings
         names = [ment.name_spelling for ment in batch]
-
-        embs = torch.zeros(batch_size,self.ft().get_dimension())
+        embs = np.zeros((batch_size,self.ft().get_dimension()),dtype=np.float32)
         for i,name in enumerate(names):
             embs[i] = self.get_embedding_for_name(name)
+
+        norm = np.linalg.norm(embs,axis=1,keepdims=True)
+        norm[norm==0] = 1
+        embs /= norm
+
+        embs = torch.from_numpy(embs)
 
         if self.config.use_cuda:
             embs = embs.cuda()
 
-        # mean_norm = torch.norm(embs, dim=1).unsqueeze(1)
-        # normed = torch.div(embs, mean_norm)
+
         return embs
+
 
     def score_singletons(self,bm1_vecs,bm2_vecs):
         score = torch.sum(torch.mul(bm1_vecs, bm2_vecs), dim=1)
