@@ -9,6 +9,7 @@
     "dev_max_canopy_size": 400,
     "dev_pair_filename": null,
     "e_eval_every": 10,
+    "e_iterations": 10000,
     "e_lr": 0.0001,
     "eval_every": 5000,
     "fraction_of_thresholds_to_try_dev": 1,

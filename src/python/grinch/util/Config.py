@@ -171,7 +171,7 @@ class Config(object):
         self.warm_start_name = False
         self.warm_start_context_glove = False
         self.use_cosine_sim = True
-
+        self.e_iterations = 30
 
         if filename:
             self.__dict__.update(json.load(open(filename)))
