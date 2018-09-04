@@ -172,6 +172,8 @@ class Config(object):
         self.warm_start_context_glove = False
         self.use_cosine_sim = True
         self.e_iterations = 30
+        self.ds_dims = {'name': 25, 'context': 25, 'name-ft': 25}
+        self.train_tree_num_entites = 4
 
         if filename:
             self.__dict__.update(json.load(open(filename)))
