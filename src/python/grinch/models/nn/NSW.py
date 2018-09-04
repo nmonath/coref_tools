@@ -49,7 +49,6 @@ class NSW(object):
         self.use_canopies = use_canopies
         self.canopy_map = defaultdict(list)
 
-
     def num_edges(self):
         return self.num_neighbor_edges + len(self.nodes)-1
 
@@ -161,6 +160,7 @@ class NSW(object):
                 assert best == sorted_nodes[0]
                 return sorted_nodes
 
+
     def exact_knn(self, v, offlimits,  k=1):
         """Returns the exact knn of v.
 
@@ -178,12 +178,11 @@ class NSW(object):
             nodes = self.nodes
         knn = []
         num_score_fn = 0
-        for n in nodes:
-            if n not in offlimits:
+        for n,score in v.score_group(v,nodes,offlimits,set()):
                 num_score_fn += 1
                 if len(knn) == k:
-                    heappushpop(knn, (n.e_score_fn(v, n), n))
+                    heappushpop(knn, (score, n))
                 else:
-                    heappush(knn, (n.e_score_fn(v, n), n))
+                    heappush(knn, (score, n))
         return sorted(knn, key=lambda x: (x[0], x[1]), reverse=True), num_score_fn
 

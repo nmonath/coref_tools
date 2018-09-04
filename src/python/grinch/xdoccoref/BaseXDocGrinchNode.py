@@ -23,7 +23,7 @@ class BaseXDocGrinchNode(GNSWNode):
         self.point_counter = 1
 
     def score_group(self, query, others, offlimits, path):
-        batch_size = 100
+        batch_size = 1000
         query_canopies = query.canopies()
         ok_neighbors = [n for n in others if n not in offlimits and n not in path and self.has_overlap(query_canopies,n.canopies())]
         for b in range(0,len(ok_neighbors),batch_size):
