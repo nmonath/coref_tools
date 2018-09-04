@@ -25,7 +25,7 @@ class LookupEncoder(MentEncoder):
         super(LookupEncoder,self).__init__(config,vocab,type_key,use_pairwise=config.use_pairwise[type_key],output_dim=output_dim)
         self.cached_vectors = dict()
         self.cached_counts = []
-        self.dim = self.config.typed_dims[type_key]
+        self.dim = self.config.lookup_dims[type_key]
 
     def __getstate__(self):
         """Delete cached_ft so that we don't have to deal with serialization."""

@@ -19,6 +19,7 @@ from grinch.xdoccoref.FTNameEncoder import FTName
 from grinch.xdoccoref.CNNEncoders import NameCNNEncoder,ContextCNNEncoder
 from grinch.xdoccoref.AttentionEncoders import AttnEncoder
 from grinch.xdoccoref.LookupEncoder import LookupEncoder
+from grinch.xdoccoref.DeepSetEncoder import DeepSetEncoder
 
 class PretrainedNameOnly(EntityScoringModel):
     def __init__(self,config):
@@ -60,3 +61,22 @@ class LookupModel(EntityScoringModel):
         self.setup_encoders()
         self.setup_scoring_layer()
 
+class DSLookupModel(EntityScoringModel):
+    def __init__(self,config,typed_vocab, mention_encoders=None):
+        super(DSLookupModel, self).__init__(config, ['name_ft', 'context'], typed_vocab, mention_encoders)
+        self.typed_vocabs['name_ft'] = Vocab(max_len=300)
+        self.ft_name = FTName(config,self.typed_vocabs['name_ft'],'name_ft')
+        self.mention_encoders['name_ft'] = self.ft_name #if 'name_ft' not in mention_encoders or mention_encoders is None else mention_encoders['name_ft']
+        self.mention_encoders['context'] = DeepSetEncoder(LookupEncoder(config, self.typed_vocabs['context'],'context'),self.config.lookup_dims['context']) #if 'context' not in mention_encoders or mention_encoders is None else mention_encoders['context']
+        self.setup_encoders()
+        self.setup_scoring_layer()
+
+class AttnLookupModel(EntityScoringModel):
+    def __init__(self,config,typed_vocab, mention_encoders=None):
+        super(AttnLookupModel, self).__init__(config, ['name_ft', 'context'], typed_vocab, mention_encoders)
+        self.typed_vocabs['name_ft'] = Vocab(max_len=300)
+        self.ft_name = FTName(config,self.typed_vocabs['name_ft'],'name_ft')
+        self.mention_encoders['name_ft'] = self.ft_name #if 'name_ft' not in mention_encoders or mention_encoders is None else mention_encoders['name_ft']
+        self.mention_encoders['context'] = AttnEncoder(LookupEncoder(config, self.typed_vocabs['context'],'context')) #if 'context' not in mention_encoders or mention_encoders is None else mention_encoders['context']
+        self.setup_encoders()
+        self.setup_scoring_layer()

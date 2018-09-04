@@ -174,6 +174,7 @@ class Config(object):
         self.e_iterations = 30
         self.ds_dims = {'name': 25, 'context': 25, 'name-ft': 25}
         self.train_tree_num_entites = 4
+        self.lookup_dims = {'name': 25, 'context': 25, 'name-ft':100}
 
         if filename:
             self.__dict__.update(json.load(open(filename)))

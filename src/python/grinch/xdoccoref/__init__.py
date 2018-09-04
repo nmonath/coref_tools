@@ -16,7 +16,7 @@ limitations under the License.
 from grinch.util.Config import Config
 from grinch.xdoccoref.Vocab import TypedVocab
 from nltk.corpus import stopwords as sw
-from grinch.xdoccoref.XDocModels import PretrainedNameOnly,BaseCNNScoringModel,AttnCNNScoringModel,LookupModel
+from grinch.xdoccoref.XDocModels import PretrainedNameOnly,BaseCNNScoringModel,AttnCNNScoringModel,LookupModel,DSLookupModel,AttnLookupModel
 stopwords = set(sw.words('english'))
 import torch
 
@@ -32,6 +32,10 @@ def build_model(config: Config,typed_vocab: TypedVocab):
         return AttnCNNScoringModel(config, typed_vocab)
     elif config.model_name == 'LookupModel':
         return LookupModel(config, typed_vocab)
+    elif config.model_name == 'DSLookupModel':
+        return DSLookupModel(config, typed_vocab)
+    elif config.model_name == 'AttnLookupModel':
+        return AttnLookupModel(config, typed_vocab)
 
 def new_grinch(config,best_model=None,eval_mode=True):
     grinch = None
