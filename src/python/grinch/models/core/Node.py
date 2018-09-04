@@ -65,10 +65,7 @@ class Node(object):
         label_to_count = defaultdict(float)
         pts = [p for l in self.leaves() for p in l.pts]
         for x in pts:
-            if len(x) == 3:
-                p, l, id = x
-            else:
-                p, l = x
+            l = x.gt
             label_to_count[l] += 1.0
         return label_to_count
 
