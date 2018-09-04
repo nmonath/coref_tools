@@ -45,7 +45,7 @@
     "num_max_num_positives_per_cluster":100,
     "num_hard_neg_samples_per_pt": 0,
     "produce_sample_pairs":true,
-    "lookup_table": "data/tgx-processed/lookuptable.tsv.gz",
+    "lookup_table": "data/tgx-processed/lookuptable_512.tsv.gz",
     "vocab_file":"data/tgx-processed/train/vocab.json",
     "typed_dims": {"name": 25, "context": 512, "name_ft": 100},
     "cnn_dims": {"name": 25, "context": 100, "name-ft": 100},
