@@ -12,7 +12,7 @@ nlp = spacy.load('en_core_web_sm')
 
 tokenizer = English().Defaults.create_tokenizer(nlp)
 
-def process_one(entMent,typedVocab):
+def process_one(entMent):
     return tokenize(entMent,tokenizer)
 
 # def process_one(entMent,typedVocab):
@@ -40,14 +40,11 @@ def tokenize(entMent,tokenizer):
 if __name__ == "__main__":
     input_file = sys.argv[1]
     output_file = sys.argv[2]
-    vocab_file = sys.argv[3]
-
-    tv = TypedVocab(vocab_file)
 
     with gzip.open(output_file,'wt') as fout:
         for entMent in load_json_mentions(input_file):
             if len(entMent.context_string.strip()) > 0:
-                entMentP = process_one(entMent,tv)
+                entMentP = process_one(entMent)
                 if entMentP:
                     fout.write("%s\n" % entMentP.to_json())
                 else:

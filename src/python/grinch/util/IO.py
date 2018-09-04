@@ -18,6 +18,7 @@ import os
 import errno
 from shutil import copytree
 import gzip
+import codecs
 
 def mkdir_p(filepath):
     try:
@@ -54,6 +55,6 @@ def lines(filename):
             for line in fin:
                 yield line
     else:
-        with open(filename,'r') as fin:
+        with codecs.open(filename,'r','utf-8') as fin:
             for line in fin:
                 yield line

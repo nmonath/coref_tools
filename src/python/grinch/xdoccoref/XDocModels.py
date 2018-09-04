@@ -18,6 +18,7 @@ from grinch.xdoccoref.Vocab import Vocab
 from grinch.xdoccoref.FTNameEncoder import FTName
 from grinch.xdoccoref.CNNEncoders import NameCNNEncoder,ContextCNNEncoder
 from grinch.xdoccoref.AttentionEncoders import AttnEncoder
+from grinch.xdoccoref.LookupEncoder import LookupEncoder
 
 class PretrainedNameOnly(EntityScoringModel):
     def __init__(self,config):
@@ -46,6 +47,16 @@ class AttnCNNScoringModel(EntityScoringModel):
         self.mention_encoders['name_ft'] = self.ft_name #if 'name_ft' not in mention_encoders or mention_encoders is None else mention_encoders['name_ft']
         self.mention_encoders['name'] = AttnEncoder(NameCNNEncoder(config, self.typed_vocabs['name'])) # if 'name' not in mention_encoders or mention_encoders is None else mention_encoders['name']
         self.mention_encoders['context'] = AttnEncoder(ContextCNNEncoder(config, self.typed_vocabs['context'])) #if 'context' not in mention_encoders or mention_encoders is None else mention_encoders['context']
+        self.setup_encoders()
+        self.setup_scoring_layer()
+
+class LookupModel(EntityScoringModel):
+    def __init__(self,config,typed_vocab, mention_encoders=None):
+        super(LookupModel, self).__init__(config, ['name_ft', 'context'], typed_vocab, mention_encoders)
+        self.typed_vocabs['name_ft'] = Vocab(max_len=300)
+        self.ft_name = FTName(config,self.typed_vocabs['name_ft'],'name_ft')
+        self.mention_encoders['name_ft'] = self.ft_name #if 'name_ft' not in mention_encoders or mention_encoders is None else mention_encoders['name_ft']
+        self.mention_encoders['context'] = LookupEncoder(config, self.typed_vocabs['context'],'context') #if 'context' not in mention_encoders or mention_encoders is None else mention_encoders['context']
         self.setup_encoders()
         self.setup_scoring_layer()
 
