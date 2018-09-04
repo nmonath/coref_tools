@@ -29,7 +29,7 @@ class AttnEncoder(MentEncoder):
         return self.init_ent_fv(batch)[0]
 
     def init_ent_fv(self,ment):
-        base_emb = self.base_encoder.feat_ments([ment])
+        base_emb = self.base_encoder.feat_ments([ment]) if not type(ment) is list else self.base_encoder.feat_ments(ment)
         attn_weights = self.attender(base_emb)
         output = attn_weights * base_emb
         return output.squeeze(),attn_weights.squeeze()
@@ -45,6 +45,6 @@ class AttnEncoder(MentEncoder):
         else:
             ent.typed_mat[self.type_key] = None
             ent.typed_mat_assign[self.type_key] = None
-        ent.mat = [ment.ment().attributes]
+        ent.mat = [ment]
 
 
