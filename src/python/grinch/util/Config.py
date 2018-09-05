@@ -176,6 +176,7 @@ class Config(object):
         self.train_tree_num_entites = 4
         self.lookup_dims = {'name': 25, 'context': 25, 'name-ft':100}
         self.use_rank_training_hac = False
+        self.random_sample_ehac = False
 
         if filename:
             self.__dict__.update(json.load(open(filename)))
