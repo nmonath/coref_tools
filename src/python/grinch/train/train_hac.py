@@ -403,7 +403,7 @@ class TrainHac(MergePreTrainer):
                 # best_partition = predicted
 
         self.logger.info('[BEST THRESHOLD F1] %s %s' % (best_t, best_f))
-        best_t = sum(best_t) / len(best_t)
+        best_t = min(best_t) # / len(best_t)
         return best_f, best_t
 
     def dev_eval(self, dataset):
