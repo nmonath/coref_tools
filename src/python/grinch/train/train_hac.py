@@ -394,7 +394,7 @@ class TrainHac(MergePreTrainer):
 
             self.logger.debug('t, pre, rec, f1')
             self.logger.debug('%s, %s, %s, %s' % (t, pre, rec, f1))
-            if best_f is None or best_f <= f1:
+            if best_f is None or best_f < f1:
                 best_f = f1
                 best_t = t
                 # best_partition = predicted
