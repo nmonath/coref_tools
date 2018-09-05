@@ -403,7 +403,7 @@ class TrainHac(MergePreTrainer):
                 # best_partition = predicted
 
         self.logger.info('[BEST THRESHOLD F1] %s %s' % (best_t, best_f))
-        best_t = min(best_t) # / len(best_t)
+        best_t = max(best_t) # / len(best_t)
         return best_f, best_t
 
     def dev_eval(self, dataset):
@@ -557,7 +557,7 @@ if __name__ == '__main__':
 
     # Create dev data
     if config.random_sample_ehac:
-        subset = trainer.random.sample(dev_data, config.dev_max_canopy_size)
+        subset = trainer.random.sample(dev_data, min(len(dev_data),config.dev_max_canopy_size))
     else:
         dev_data = choose_dev_dataset(dev_data, 40, config.dev_max_canopy_size, config.dev_num_sf_samples)
 
