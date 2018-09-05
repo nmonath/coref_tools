@@ -49,5 +49,6 @@
     "vocab_file":"data/tgx-processed/train/vocab.json",
     "typed_dims": {"name": 25, "context": 256, "name_ft": 100},
     "cnn_dims": {"name": 25, "context": 100, "name-ft": 100},
+    "lookup_dims": {"name": 25, "context": 256, "name_ft": 100},
     "cnn_pos_dims": {"name":10,"context":10}
 }
