@@ -375,7 +375,7 @@ class TrainHac(MergePreTrainer):
         else:
             scores_to_try = KMeans(number_to_try).fit(np.array([[x] for x in all_scores])).cluster_centers_
         best_f = None
-        best_t = None
+        best_t = []
         scores_to_try = sorted(scores_to_try)
         for i in range(0, len(scores_to_try)):
             t = scores_to_try[i]
@@ -396,11 +396,14 @@ class TrainHac(MergePreTrainer):
             self.logger.debug('%s, %s, %s, %s' % (t, pre, rec, f1))
             if best_f is None or best_f < f1:
                 best_f = f1
-                best_t = t
+                best_t = [t.cpu().item()]
+            elif best_f == f1:
+                best_t.append(t.cpu().item())
+
                 # best_partition = predicted
 
         self.logger.info('[BEST THRESHOLD F1] %s %s' % (best_t, best_f))
-        best_t = best_t.cpu().item()
+        best_t = sum(best_t) / len(best_t)
         return best_f, best_t
 
     def dev_eval(self, dataset):
