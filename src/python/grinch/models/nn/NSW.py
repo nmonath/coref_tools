@@ -178,7 +178,7 @@ class NSW(object):
             nodes = self.nodes
         knn = []
         num_score_fn = 0
-        for n,score in v.score_group(v,nodes,offlimits,set()):
+        for score,n in v.score_group(v,nodes,offlimits,set()):
                 num_score_fn += 1
                 if len(knn) == k:
                     heappushpop(knn, (score, n))
