@@ -24,11 +24,16 @@ class DeepSetEncoder(MentEncoder):
 
         self.base_encoder = base_encoder
         self.embedding_dim = input_dim
-        self.ds = torch.nn.Sequential(torch.nn.Linear(self.embedding_dim ,self.config.ds_dims[base_encoder.type_key]),
-                                            torch.nn.Tanh(),
-                                            torch.nn.Linear(self.config.ds_dims[base_encoder.type_key] ,self.config.ds_dims[base_encoder.type_key]),
-                                            torch.nn.Tanh())
-
+        if self.config.ds_arch1:
+            self.ds = torch.nn.Sequential(torch.nn.Linear(self.embedding_dim ,self.config.ds_dims[base_encoder.type_key]),
+                                                torch.nn.Tanh(),
+                                                torch.nn.Linear(self.config.ds_dims[base_encoder.type_key] ,self.config.ds_dims[base_encoder.type_key]),
+                                          torch.nn.Tanh())
+        elif not self.config.ds_arch1:
+            self.ds = torch.nn.Sequential(
+                torch.nn.Linear(self.embedding_dim, self.config.ds_dims[base_encoder.type_key]),
+                torch.nn.Tanh(),
+                torch.nn.Linear(self.config.ds_dims[base_encoder.type_key], self.config.ds_dims[base_encoder.type_key]))
 
     def feat_ments(self, batch):
         return self.init_ent_fv(batch)

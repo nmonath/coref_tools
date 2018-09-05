@@ -434,7 +434,9 @@ class TrainHac(MergePreTrainer):
                    os.path.join(self.config.experiment_out_dir, 'models', 'model-%s.torch' % (ts)))
         torch.save(dev_grinch.sim_model,
                    os.path.join(self.config.experiment_out_dir, 'model-latest.torch' ))
-
+        self.config.best_model = os.path.join(self.config.experiment_out_dir, 'model-latest.torch')
+        self.config.save_config(self.config.experiment_out_dir,filename='config-latest.json')
+        self.config.best_model = os.path.join(self.config.experiment_out_dir, 'best_model.torch')
         self.model.attach()
         self.model.train()
 

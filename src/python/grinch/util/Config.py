@@ -177,6 +177,7 @@ class Config(object):
         self.lookup_dims = {'name': 25, 'context': 25, 'name-ft':100}
         self.use_rank_training_hac = False
         self.random_sample_ehac = False
+        self.ds_arch1 = True
 
         if filename:
             self.__dict__.update(json.load(open(filename)))
