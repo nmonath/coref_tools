@@ -427,6 +427,14 @@ class TrainHac(MergePreTrainer):
             self.config.partition_threshold = self.best_thresh
             self.config.best_model = os.path.join(self.config.experiment_out_dir, 'best_model.torch')
             self.config.save_config(self.config.experiment_out_dir)
+        mkdir_p(os.path.join(self.config.experiment_out_dir,'models'))
+        ts = "{:04d}-{:02d}-{:02d}-{:02d}-{:02d}-{:02d}".format(
+            now.year, now.month, now.day, now.hour, now.minute, now.second)
+        torch.save(dev_grinch.sim_model,
+                   os.path.join(self.config.experiment_out_dir, 'models', 'model-%s.torch' % (ts)))
+        torch.save(dev_grinch.sim_model,
+                   os.path.join(self.config.experiment_out_dir, 'model-latest.torch' ))
+
         self.model.attach()
         self.model.train()
 
