@@ -556,7 +556,10 @@ if __name__ == '__main__':
         dev_data.append(m)
 
     # Create dev data
-    dev_data = choose_dev_dataset(dev_data, 40, config.dev_max_canopy_size, config.dev_num_sf_samples)
+    if config.random_sample_ehac:
+        subset = trainer.random.sample(dev_data, config.dev_max_canopy_size)
+    else:
+        dev_data = choose_dev_dataset(dev_data, 40, config.dev_max_canopy_size, config.dev_num_sf_samples)
 
     trainer.train(mentions, batcher, config.experiment_out_dir, dev_data)
     config.best_model = os.path.join(config.experiment_out_dir, 'best_model.torch')
